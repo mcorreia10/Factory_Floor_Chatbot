@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(mv \"SIMOTICS_SD_Operating_Instructions.pdf\" \"Siemens_SIMOTICS_SD_Operating_Instructions.pdf\")",
+      "Bash(mv \"G120_CU240_Operating_Instructions.pdf\" \"Siemens_G120_CU240BE2_List_Manual.pdf\")",
+      "Bash(mv \"G120_List_Manual.pdf\" \"Siemens_SINAMICS_G120C_List_Manual_EXTRA.pdf\")",
+      "Bash(mv \"G120C_Operating_Instructions.pdf\" \"Siemens_CU240B2_CU240E2_List_Manual_2013_DUPLICATE.pdf\")",
+      "Bash(python3 -)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/Users/marcelocorreia/Downloads/factory_floor_milestone/app.py'\\).read\\(\\)\\)\")",
+      "Bash(cd *)",
+      "WebSearch",
+      "Bash(curl *)",
+      "Bash(python3 *)",
+      "Bash(jupyter --version)",
+      "Bash(jupyter nbconvert *)",
+      "Bash(nohup streamlit run app.py --server.headless true --server.port 8501)",
+      "Bash(echo \"PID: $!\")"
+    ]
+  }
+}

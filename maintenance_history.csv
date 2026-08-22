@@ -1,0 +1,78 @@
+event_id,machine_id,event_date,event_type,fault_code,description,action_taken,technician,downtime_hours
+1,MOTOR-01,2020-06-13,preventive_maintenance,,Winding insulation resistance measured below the specified value,Dried and re-varnished windings; re-tested insulation resistance,R. Ferreira,1.6
+2,MOTOR-01,2020-06-28,preventive_maintenance,,Motor housing running hotter than the rated temperature during normal load,Cleared blocked ventilation fins and verified cooling fan operation,P. Gomes,5.1
+3,MOTOR-01,2024-05-27,preventive_maintenance,,Abnormal noise and vibration at the bearings noticed during a routine inspection,Replaced drive-end bearing and re-balanced rotor,A. Silva,5.4
+4,MOTOR-01,2024-08-21,preventive_maintenance,,Shaft end-play outside tolerance found during inspection,Replaced worn thrust bearing and adjusted shaft end-play,T. Nunes,6.9
+5,MOTOR-01,2025-04-07,fault,,Motor housing running hotter than the rated temperature during normal load,Cleared blocked ventilation fins and verified cooling fan operation,T. Nunes,1.0
+6,MOTOR-02,2022-12-18,fault,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,A. Silva,2.9
+7,MOTOR-02,2023-01-08,repair,,Unusual noise noted when the rotor was turned by hand during a stopped inspection,Checked rotor and coupling for damage or imbalance; verified direction of rotation with motor uncoupled,P. Gomes,2.7
+8,MOTOR-03,2020-07-30,repair,,Unusual odor and discoloration noticed near the terminal box,Inspected and re-torqued terminal connections; cleaned terminal box,M. Costa,4.3
+9,MOTOR-03,2020-08-07,repair,,Shaft end-play outside tolerance found during inspection,Replaced worn thrust bearing and adjusted shaft end-play,A. Silva,8.0
+10,MOTOR-04,2019-11-05,fault,,Corrosion and moisture noticed on the motor housing during external inspection,Cleaned and repainted affected areas; checked seals for water ingress,A. Silva,1.3
+11,MOTOR-04,2022-04-27,fault,,Condensation found inside the terminal box after the line washdown,Replaced terminal box gasket and cable gland seals,J. Alves,6.9
+12,MOTOR-05,2020-10-31,fault,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,A. Silva,3.3
+13,MOTOR-05,2026-05-22,preventive_maintenance,,Condensation found inside the terminal box after the line washdown,Replaced terminal box gasket and cable gland seals,J. Alves,4.7
+14,MOTOR-06,2019-04-03,preventive_maintenance,,Abnormal noise and vibration at the bearings noticed during a routine inspection,Replaced drive-end bearing and re-balanced rotor,A. Silva,1.8
+15,MOTOR-06,2022-02-27,fault,,Running current higher than expected on a preventive check,Checked mechanical load and bearing grease condition; re-greased bearings per lubricant plate interval,R. Ferreira,3.0
+16,MOTOR-06,2023-09-24,repair,,Winding insulation resistance measured below the specified value,Dried and re-varnished windings; re-tested insulation resistance,M. Costa,5.8
+17,MOTOR-07,2020-10-18,repair,,Corrosion and moisture noticed on the motor housing during external inspection,Cleaned and repainted affected areas; checked seals for water ingress,R. Ferreira,3.4
+18,MOTOR-07,2020-11-28,repair,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,A. Silva,8.0
+19,MOTOR-07,2021-10-24,repair,,Abnormal noise and vibration at the bearings noticed during a routine inspection,Replaced drive-end bearing and re-balanced rotor,M. Costa,3.8
+20,MOTOR-07,2022-10-20,repair,,Shaft end-play outside tolerance found during inspection,Replaced worn thrust bearing and adjusted shaft end-play,P. Gomes,6.3
+21,MOTOR-07,2023-01-28,repair,,Abnormal noise and vibration at the bearings noticed during a routine inspection,Replaced drive-end bearing and re-balanced rotor,T. Nunes,2.8
+22,MOTOR-07,2025-05-23,fault,,Condensation found inside the terminal box after the line washdown,Replaced terminal box gasket and cable gland seals,A. Silva,3.7
+23,MOTOR-08,2021-04-28,repair,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,J. Alves,5.0
+24,MOTOR-08,2024-06-24,preventive_maintenance,,Corrosion and moisture noticed on the motor housing during external inspection,Cleaned and repainted affected areas; checked seals for water ingress,M. Costa,7.7
+25,MOTOR-09,2021-01-31,fault,,Winding insulation resistance measured below the specified value,Dried and re-varnished windings; re-tested insulation resistance,J. Alves,4.3
+26,MOTOR-09,2022-01-27,repair,,Condensation found inside the terminal box after the line washdown,Replaced terminal box gasket and cable gland seals,P. Gomes,1.7
+27,MOTOR-09,2022-10-04,preventive_maintenance,,Condensation found inside the terminal box after the line washdown,Replaced terminal box gasket and cable gland seals,T. Nunes,1.1
+28,MOTOR-09,2023-02-11,repair,,Corrosion and moisture noticed on the motor housing during external inspection,Cleaned and repainted affected areas; checked seals for water ingress,P. Gomes,1.9
+29,MOTOR-09,2023-06-01,preventive_maintenance,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,R. Ferreira,3.7
+30,MOTOR-10,2021-11-28,preventive_maintenance,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,T. Nunes,5.4
+31,MOTOR-10,2023-04-09,repair,,Unusual noise noted when the rotor was turned by hand during a stopped inspection,Checked rotor and coupling for damage or imbalance; verified direction of rotation with motor uncoupled,J. Alves,3.2
+32,MOTOR-10,2023-09-13,fault,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,J. Alves,1.8
+33,MOTOR-10,2023-12-15,repair,,Unusual odor and discoloration noticed near the terminal box,Inspected and re-torqued terminal connections; cleaned terminal box,P. Gomes,7.8
+34,MOTOR-10,2024-08-27,fault,,Corrosion and moisture noticed on the motor housing during external inspection,Cleaned and repainted affected areas; checked seals for water ingress,R. Ferreira,2.1
+35,MOTOR-10,2026-05-01,fault,,"Machine not running smoothly, with abnormal noise reported as it coasted down after switch-off",Checked for voltage imbalance and magnetic/mechanical imbalance; realigned coupling,J. Alves,2.5
+36,VFD-01,2020-01-27,repair,F07860,External fault 1,Checked external interlock wiring on the configured digital input,P. Gomes,2.8
+37,VFD-01,2020-03-31,fault,F30001,Power unit: Overcurrent,Checked motor for short-circuit/ground fault and reviewed closed-loop control parameters and ramp settings,A. Silva,1.0
+38,VFD-01,2023-05-12,fault,F30950,Power unit: Internal software error,Performed a POWER ON reset of the Control Unit,J. Alves,1.1
+39,VFD-01,2023-08-01,fault,F07901,Drive: Motor overspeed,Checked maximum speed limit parameters (p1082) and verified speed feedback,T. Nunes,0.8
+40,VFD-01,2025-12-29,fault,F07011,Drive: Motor overtemperature,Reduced motor load; checked ambient temperature and motor temperature sensor wiring,P. Gomes,6.0
+41,VFD-02,2023-04-05,fault,F07801,Drive: Motor overcurrent,Checked motor load and cabling for short circuit,A. Silva,4.8
+42,VFD-02,2024-09-26,fault,F07011,Drive: Motor overtemperature,Reduced motor load; checked ambient temperature and motor temperature sensor wiring,P. Gomes,4.0
+43,VFD-02,2026-04-29,preventive_maintenance,F07016,Drive: Motor temperature sensor fault,Checked motor temperature sensor wiring and connection,T. Nunes,0.6
+44,VFD-03,2021-08-25,fault,F30003,Power unit: DC link voltage undervoltage,Checked incoming line supply voltage and phases for interruption,R. Ferreira,7.1
+45,VFD-03,2025-04-13,preventive_maintenance,F30950,Power unit: Internal software error,Performed a POWER ON reset of the Control Unit,P. Gomes,5.7
+46,VFD-04,2020-10-30,fault,F30805,Power unit: EEPROM checksum error,Replaced the power unit module,A. Silva,0.7
+47,VFD-04,2021-10-05,preventive_maintenance,F07860,External fault 1,Checked external interlock wiring on the configured digital input,R. Ferreira,7.2
+48,VFD-04,2024-08-15,fault,F30805,Power unit: EEPROM checksum error,Replaced the power unit module,P. Gomes,5.1
+49,VFD-04,2025-06-08,fault,F07807,Drive: Short-circuit/ground fault detected at motor-side output terminals,Inspected motor cable and terminals for short-circuit or ground fault,T. Nunes,6.1
+50,VFD-04,2026-04-23,repair,F30021,Power unit: Ground fault,Checked power cable and motor insulation; inspected current transformer (CT),P. Gomes,7.5
+51,VFD-05,2020-06-29,preventive_maintenance,F07807,Drive: Short-circuit/ground fault detected at motor-side output terminals,Inspected motor cable and terminals for short-circuit or ground fault,R. Ferreira,7.4
+52,VFD-05,2021-12-08,preventive_maintenance,F30950,Power unit: Internal software error,Performed a POWER ON reset of the Control Unit,P. Gomes,2.4
+53,VFD-05,2023-02-28,fault,F30002,Power unit: DC link voltage overvoltage,Checked braking resistor and ramp-down time; verified line supply phases,R. Ferreira,6.7
+54,VFD-05,2025-10-07,fault,F30950,Power unit: Internal software error,Performed a POWER ON reset of the Control Unit,M. Costa,1.5
+55,VFD-05,2026-05-04,fault,F07801,Drive: Motor overcurrent,Checked motor load and cabling for short circuit,M. Costa,3.4
+56,VFD-06,2022-06-25,fault,F30059,Power unit: Internal fan faulty,Replaced the internal power unit cooling fan,M. Costa,6.5
+57,VFD-06,2023-11-26,repair,F30002,Power unit: DC link voltage overvoltage,Checked braking resistor and ramp-down time; verified line supply phases,T. Nunes,3.2
+58,VFD-06,2024-06-27,preventive_maintenance,F07901,Drive: Motor overspeed,Checked maximum speed limit parameters (p1082) and verified speed feedback,P. Gomes,2.9
+59,VFD-06,2025-11-05,repair,F07807,Drive: Short-circuit/ground fault detected at motor-side output terminals,Inspected motor cable and terminals for short-circuit or ground fault,J. Alves,6.7
+60,VFD-06,2025-12-25,fault,F30001,Power unit: Overcurrent,Checked motor for short-circuit/ground fault and reviewed closed-loop control parameters and ramp settings,A. Silva,3.9
+61,VFD-07,2023-03-24,repair,F07860,External fault 1,Checked external interlock wiring on the configured digital input,M. Costa,5.9
+62,VFD-07,2024-08-11,repair,F30004,Power unit: Overtemperature heat sink AC inverter,"Checked ambient temperature, fan operation and cabinet ventilation",J. Alves,5.6
+63,VFD-08,2022-12-27,fault,F07901,Drive: Motor overspeed,Checked maximum speed limit parameters (p1082) and verified speed feedback,A. Silva,6.9
+64,VFD-08,2024-01-18,fault,F30002,Power unit: DC link voltage overvoltage,Checked braking resistor and ramp-down time; verified line supply phases,M. Costa,2.5
+65,VFD-08,2024-07-22,preventive_maintenance,F30001,Power unit: Overcurrent,Checked motor for short-circuit/ground fault and reviewed closed-loop control parameters and ramp settings,T. Nunes,4.8
+66,VFD-08,2024-12-21,fault,F30037,Power unit: Rectifier overtemperature,Checked fan and supply phases; verified load duty cycle within limits,A. Silva,7.5
+67,VFD-08,2025-02-05,fault,F07016,Drive: Motor temperature sensor fault,Checked motor temperature sensor wiring and connection,A. Silva,3.9
+68,VFD-09,2023-04-28,fault,F07011,Drive: Motor overtemperature,Reduced motor load; checked ambient temperature and motor temperature sensor wiring,J. Alves,3.8
+69,VFD-09,2023-09-22,repair,F30805,Power unit: EEPROM checksum error,Replaced the power unit module,R. Ferreira,7.3
+70,VFD-09,2023-10-15,fault,F30004,Power unit: Overtemperature heat sink AC inverter,"Checked ambient temperature, fan operation and cabinet ventilation",M. Costa,7.2
+71,VFD-09,2024-06-16,preventive_maintenance,F30003,Power unit: DC link voltage undervoltage,Checked incoming line supply voltage and phases for interruption,J. Alves,1.8
+72,VFD-09,2025-02-26,repair,F07807,Drive: Short-circuit/ground fault detected at motor-side output terminals,Inspected motor cable and terminals for short-circuit or ground fault,P. Gomes,7.9
+73,VFD-09,2026-04-27,repair,F07801,Drive: Motor overcurrent,Checked motor load and cabling for short circuit,A. Silva,7.4
+74,VFD-10,2020-06-12,preventive_maintenance,F30037,Power unit: Rectifier overtemperature,Checked fan and supply phases; verified load duty cycle within limits,T. Nunes,4.7
+75,VFD-10,2021-01-21,fault,F07860,External fault 1,Checked external interlock wiring on the configured digital input,T. Nunes,7.3
+76,VFD-10,2025-04-17,preventive_maintenance,F07807,Drive: Short-circuit/ground fault detected at motor-side output terminals,Inspected motor cable and terminals for short-circuit or ground fault,T. Nunes,7.6
+77,VFD-10,2025-10-12,repair,F30021,Power unit: Ground fault,Checked power cable and motor insulation; inspected current transformer (CT),R. Ferreira,5.5
