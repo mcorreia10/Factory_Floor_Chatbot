@@ -1,8 +1,8 @@
-# The Factory Floor — Saturday Milestone
+# The Factory Floor
 
 Industrial Maintenance Copilot for **electric motors + variable-frequency drives (VFDs)**.
 
-This package implements the project up to point **9** of the agreed build order:
+This package implements the project up to the following build order:
 
 1. Choose equipment family ✅
 2. Collect PDFs ✅ (official source manifest + downloader)
