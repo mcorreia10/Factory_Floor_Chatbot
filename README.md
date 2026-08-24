@@ -45,7 +45,9 @@ untouched) documenting this checklist and the corrected item 05 description. See
 `CLAUDE.md`'s 2026-08-19 note for the full reasoning. As of 2026-08-21, all 7 core
 requirements in the table above are ✅ Done — see `dificuldades_e_oportunidades.md` for the
 non-core gaps that remain (SDS corpus, hybrid/lexical retrieval for exact fault codes,
-a live-blocking Safety Validator, a real Git repository).
+a live-blocking Safety Validator). The project is tracked in a real Git repository
+(`github.com/mcorreia10/Factory_Floor_Chatbot`), confirmed 2026-08-24 — no longer an
+open gap.
 
 ## Session note (2026-08-21) — read this FIRST before continuing
 
@@ -112,8 +114,9 @@ itself, so a model can't score a hit by parroting). New `factory_floor/evaluatio
 **All 7 core requirements are now ✅ Done.** What remains, not core, tracked in
 `dificuldades_e_oportunidades.md`: the SDS corpus (item 11), hybrid/lexical retrieval or a
 post-retrieval fault-code guardrail for the modest evidence-accuracy numbers above (item 1), a
-live-blocking version of the Safety Validator, and a real Git repository + 3-page project document
-(deliverables outside this session's agreed scope).
+live-blocking version of the Safety Validator, and the 3-page project document (deliverables
+outside this session's agreed scope). The real Git repository is done (confirmed 2026-08-24) —
+see the note below.
 
 ## Session note (2026-08-19) — read this before continuing
 

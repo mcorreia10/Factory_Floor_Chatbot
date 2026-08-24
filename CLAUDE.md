@@ -11,14 +11,27 @@ Industrial Maintenance Copilot (RAG) for Siemens electric motors + VFDs. Full
 architecture, corpus, and setup steps are in `README.md` — read that first for the
 "what". This file is for the "why" and the non-obvious gotchas.
 
-Current milestone status (confirmed stale as of 2026-08-21, updated): **all 9 roadmap
+Current milestone status (confirmed stale as of 2026-08-24, updated): **all 9 roadmap
 items and all 7 bootcamp core requirements are done** — RAG, agent, tracing, vision,
 evaluation, deployment, and the Safety Validator (the last as an audit utility, not a
 live blocking gate — see the 2026-08-21 note near the end of this file). What's left is
-explicitly non-core: an SDS corpus, hybrid/lexical retrieval for exact fault codes, a
-real Git repository, and the 3-page project document — see
-`dificuldades_e_oportunidades.md`. The history below (2026-08-18 through 2026-08-19) is
-kept for context on how earlier milestones were built; don't re-derive it from scratch.
+explicitly non-core: an SDS corpus, hybrid/lexical retrieval for exact fault codes, and
+the 3-page project document — see `dificuldades_e_oportunidades.md`. The history below
+(2026-08-18 through 2026-08-19) is kept for context on how earlier milestones were
+built; don't re-derive it from scratch.
+
+## 2026-08-24 — Git repository confirmed real (was wrongly listed as an open gap)
+
+A fresh analysis pass found this repo already has a real `origin` remote
+(`https://github.com/mcorreia10/Factory_Floor_Chatbot`) with 3 real commits — the
+"real Git repository" gap noted on 2026-08-21 (README, this file,
+`dificuldades_e_oportunidades.md`) was stale documentation, not an actual missing
+deliverable. `git status` was clean apart from a benign `.claude/settings.local.json`
+permission-allowlist diff. Updated README.md's compliance-checklist note and this
+file's status line to drop it from the "what's left" list. **Note:** `dificuldades_e_
+oportunidades.md` never actually named this item as one of its own numbered
+difficulties (it was only cross-referenced from README/CLAUDE.md), so nothing needed
+to change there.
 
 ## Decisions made deliberately (don't "fix" these without asking)
 

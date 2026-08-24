@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
+from tqdm import tqdm
 
 from factory_floor.config import DEFECT_IMAGE_DIR
 
@@ -48,7 +49,7 @@ def download_from_hf():
     rows = [s for s in samples if s["category"]["label"] in CATEGORIES]
     print(f"{len(rows)} images across {CATEGORIES} (out of {len(samples)} total in the dataset).")
 
-    for i, sample in enumerate(rows, 1):
+    for sample in tqdm(rows, desc="Downloading images", unit="img"):
         category = sample["category"]["label"]
         defect_label = sample["defect"]["label"]
         split = sample["split"]
@@ -59,9 +60,6 @@ def download_from_hf():
         target = target_dir / Path(sample["filepath"]).name
         if not target.exists():
             shutil.copyfile(local_path, target)
-
-        if i % 200 == 0 or i == len(rows):
-            print(f"  {i}/{len(rows)} images in place")
 
     print(f"OK    {len(rows)} images organized under {RAW_DIR}")
 

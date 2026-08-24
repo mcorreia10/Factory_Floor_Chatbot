@@ -15,7 +15,27 @@
       "Bash(jupyter --version)",
       "Bash(jupyter nbconvert *)",
       "Bash(nohup streamlit run app.py --server.headless true --server.port 8501)",
-      "Bash(echo \"PID: $!\")"
+      "Bash(echo \"PID: $!\")",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\se25479\\\\Desktop\\\\Factory_Floor_Chatbot\" -Recurse -Depth 2 | Select-Object FullName, PSIsContainer | ForEach-Object { $_.FullName })",
+      "PowerShell(git -C \"c:\\\\Users\\\\se25479\\\\Desktop\\\\Factory_Floor_Chatbot\" log --oneline -20)",
+      "PowerShell(git -C \"c:\\\\Users\\\\se25479\\\\Desktop\\\\Factory_Floor_Chatbot\" status)",
+      "PowerShell(git -C \"c:\\\\Users\\\\se25479\\\\Desktop\\\\Factory_Floor_Chatbot\" remote -v)",
+      "PowerShell(python -c \"import tqdm; print\\(tqdm.__version__\\)\")",
+      "PowerShell(python -m py_compile \"c:\\\\Users\\\\se25479\\\\Desktop\\\\Factory_Floor_Chatbot\\\\download_defect_images.py\"; echo \"OK: $?\")",
+      "PowerShell(python --version)",
+      "PowerShell(python -c \"import nbconvert; print\\('nbconvert ok'\\)\")",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/01_data_ingestion.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/02_vector_database.ipynb)",
+      "PowerShell(Get-Process | Sort-Object WS -Descending | Select-Object -First 10 Name, Id, @{N='MemMB';E={[math]::Round\\($_.WS/1MB,1\\)}} | Format-Table -AutoSize)",
+      "PowerShell(Get-CimInstance Win32_OperatingSystem | Select-Object @{N='TotalMemGB';E={[math]::Round\\($_.TotalVisibleMemorySize/1MB,2\\)}}, @{N='FreeMemGB';E={[math]::Round\\($_.FreePhysicalMemory/1MB,2\\)}})",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/03_rag_pipeline.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/04_conversation_history.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/05_maintenance_history.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/06_computer_vision.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/07_orchestrator_agent.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/08_tracing_observability.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/09_safety_validator.ipynb)",
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/10_evaluation_baseline.ipynb)"
     ]
   }
 }
