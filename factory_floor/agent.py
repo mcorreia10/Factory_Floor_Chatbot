@@ -2,7 +2,7 @@ from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
-from factory_floor.machines import get_machine_history
+from factory_floor.machines import get_machine, get_machine_history
 from factory_floor.rag import LLM_MODEL, format_context, get_llm
 from factory_floor.tracing import trace_config
 
@@ -17,10 +17,16 @@ You have tools available:
   for general questions.
 
 Alongside the operator's message, you may also be given the result of a vision analysis
-of an uploaded photo (the predicted condition of a component). Combine everything
-available — the described symptom, the vision analysis if present, and the machine's
-history if you consult it — into a single, coherent root-cause hypothesis and concrete
-next steps, safety precautions first.
+of an uploaded photo (the predicted condition of a component), and the registry details
+of the specific machine the operator selected. Combine everything available — the
+described symptom, the vision analysis if present, the machine details, and the
+machine's history if you consult it — into a single, coherent root-cause hypothesis and
+concrete next steps, safety precautions first.
+
+When the machine's registry details are given, never ask the operator what kind of
+equipment it is, which model it is, or where it is installed — that is already
+established fact for this request, and re-asking it wastes the operator's time on
+information the system already has.
 
 Rules:
 1. Never invent a fault code, parameter, procedure, or manual reference. Only cite what
@@ -53,6 +59,28 @@ Rules:
    fault code means — no safety section is required and you must not pad the answer
    with one.
 7. This is an educational milestone, not yet a certified safety system."""
+
+
+def format_machine_context(machine_id: str) -> str:
+    """The selected machine's registry details, as a line the agent sees up front.
+
+    Without this the agent knows the machine only indirectly — machine_id is used to
+    filter retrieval and to close over the history tool, but is never stated in the
+    conversation — so it would ask the operator what equipment type/model this is,
+    information the sidebar selection already established. Returns "" for a general
+    question (no machine selected) or an unknown id, in which case asking IS the
+    correct behavior."""
+    if not machine_id or machine_id == "GENERAL":
+        return ""
+    machine = get_machine(machine_id)
+    if not machine:
+        return ""
+    equipment = "a variable-frequency drive (VFD)" if machine.get("equipment_type") == "VFD" else "an electric motor"
+    return (
+        f"Machine selected by the operator: {machine['machine_id']} — {equipment}, "
+        f"{machine.get('family', '?')} (model {machine.get('model', '?')}), "
+        f"installed {machine.get('install_date', '?')} at {machine.get('location', '?')}."
+    )
 
 
 def format_history(rows: list) -> str:
@@ -176,6 +204,9 @@ def _build_agent_run(
     agent, retrieved_docs, tools = build_diagnostic_agent(retriever, machine_id, llm=llm)
 
     human_parts = []
+    machine_context = format_machine_context(machine_id)
+    if machine_context:
+        human_parts.append(machine_context)
     if question_text and question_text.strip():
         human_parts.append(f"Operator's described symptom: {question_text.strip()}")
     if vision_context:
@@ -273,9 +304,11 @@ def stream_diagnostic_agent(
     last one is shape-identical to what agent.invoke() returns). During tool-call
     decisions, AIMessageChunk.content is always '' (the JSON args live only in
     .tool_call_chunks) and the tool's own result flows through as a full ToolMessage,
-    not a chunk — so `isinstance(message_chunk, AIMessageChunk) and
-    message_chunk.content` reliably isolates only the final synthesis phase's real
-    text, verified to reconstruct a string byte-identical to agent.invoke()'s answer."""
+    not a chunk. The `langgraph_node == "model"` check is what makes that filter safe
+    once a tool itself calls an LLM: rag.py's reranker runs inside search_manuals, so
+    its ranking output ("0,14,13,...") arrives as content-bearing AIMessageChunks too —
+    but under node "tools", not "model" (verified empirically against this graph, not
+    assumed). Without the node check those digits stream straight to the operator."""
     agent, retrieved_docs, messages, run_config = _build_agent_run(
         question_text, retriever, machine_id, chat_history, vision_context, llm, language, config,
     )
@@ -287,8 +320,12 @@ def stream_diagnostic_agent(
             {"messages": messages}, config=run_config, stream_mode=["messages", "values"]
         ):
             if mode == "messages":
-                message_chunk, _metadata = payload
-                if isinstance(message_chunk, AIMessageChunk) and message_chunk.content:
+                message_chunk, metadata = payload
+                if (
+                    isinstance(message_chunk, AIMessageChunk)
+                    and message_chunk.content
+                    and metadata.get("langgraph_node") == "model"
+                ):
                     yield message_chunk.content
             elif mode == "values":
                 final_values = payload
