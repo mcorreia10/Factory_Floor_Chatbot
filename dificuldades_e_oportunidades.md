@@ -85,7 +85,23 @@ roteamento por deteção de padrão do código, reranking, e um guardrail pós-r
 o código pedido aparece literalmente no contexto antes de gerar a resposta — nenhuma destas camadas
 existe ainda neste projeto.
 
-### 2. Ausência de threshold de relevância na recuperação
+### 2. Ausência de threshold de relevância na recuperação — **testado a 2026-08-25, e o teste falhou por um motivo técnico**
+
+O problema continua por resolver, mas agora sabe-se *porquê* não basta ligar a opção.
+O `similarity_score_threshold` do LangChain foi medido em
+`notebooks/11_retrieval_benchmark.ipynb` (eixo B) e o resultado **não é utilizável**: a
+coleção Chroma foi construída com `hnsw.space='l2'`, por isso o LangChain resolve a
+relevância pela função euclidiana, que aqui devolve valores **fora do intervalo 0-1 e
+alguns negativos** (aviso literal: *"Relevance scores must be between 0 and 1"*). Com um
+limiar de 0.2 são descartados chunks independentemente de serem ou não relevantes — daí os
+62.2% de hit-rate contra 81.1% do `similarity`. **Esse número mede uma métrica avariada,
+não uma estratégia pior**, e está assim registado no notebook.
+
+Para testar isto a sério seria preciso reconstruir a coleção em espaço de cosseno
+(`hnsw:space="cosine"`), onde os limiares têm significado. Fica como trabalho futuro, com
+o caminho já identificado.
+
+### 2 (registo original). Ausência de threshold de relevância na recuperação
 
 O retriever devolve sempre 5 chunks, mesmo para perguntas completamente fora do domínio (testado:
 "o que pensas sobre futebol" ainda popula a tabela de "Sources retrieved"). O modelo recusa

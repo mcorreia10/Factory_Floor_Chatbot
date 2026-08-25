@@ -10,6 +10,10 @@ __pycache__/
 data/manuals/
 data/vectorstore/
 
+# Chunking-ablation stores (regenerate via notebooks/11_retrieval_benchmark.ipynb).
+# Several hundred MB each, and rebuildable in ~3 min — never commit these.
+data/vectorstore_cs*/
+
 # Generated data (regenerate via download_defect_images.py + notebook 06)
 data/defect_images/
 data/vision_model/

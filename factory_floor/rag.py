@@ -230,12 +230,23 @@ class CodeAwareRetriever:
 
 
 def build_retriever(vectorstore, k=5, equipment_type=None, rerank=False, rerank_llm=None,
-                    fetch_k=None, code_aware=False):
+                    fetch_k=None, code_aware=False, search_type="similarity",
+                    search_kwargs_extra=None):
+    """`search_type` and `search_kwargs_extra` exist for the ablation study in
+    notebooks/11_retrieval_benchmark.ipynb — "similarity" plus no extras reproduces the
+    exact previous behaviour, so no existing caller changes. "mmr" takes `lambda_mult`
+    and "similarity_score_threshold" takes `score_threshold` via search_kwargs_extra."""
     fetch_k = fetch_k or max(k * 3, 12)
     kwargs = {"k": fetch_k if rerank else k}
     if equipment_type:
         kwargs["filter"] = {"equipment_type": equipment_type}
-    base = vectorstore.as_retriever(search_kwargs=kwargs)
+    if search_type == "mmr":
+        # MMR needs its own candidate pool to diversify from; without this it has
+        # nothing to trade relevance against.
+        kwargs.setdefault("fetch_k", max(kwargs["k"] * 4, 20))
+    if search_kwargs_extra:
+        kwargs.update(search_kwargs_extra)
+    base = vectorstore.as_retriever(search_type=search_type, search_kwargs=kwargs)
     if rerank:
         base = RerankingRetriever(base, rerank_llm or get_llm(), top_n=k)
     if code_aware:

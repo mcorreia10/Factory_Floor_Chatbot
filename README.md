@@ -49,6 +49,42 @@ a live-blocking Safety Validator). The project is tracked in a real Git reposito
 (`github.com/mcorreia10/Factory_Floor_Chatbot`), confirmed 2026-08-24 — no longer an
 open gap.
 
+## Retrieval benchmark — ablation study (`notebooks/11_retrieval_benchmark.ipynb`)
+
+Notebook 10 asks *"is my system better than the obvious alternative?"*. Notebook 11 asks the
+other question — *"why this configuration and not another?"* — varying one design axis at a
+time over the same 37 scenarios. Scored with **zero LLM calls** (except the reranker arm):
+every scenario's `expected_evidence_keywords` phrase was verified to exist in the target
+chunk, so a phrase match is a real chunk-level hit test.
+
+`code_aware` is off throughout, deliberately — with it on, the 17 fault-code scenarios would
+score perfectly under every configuration and flatten the differences being measured.
+
+| Axis | Result |
+|---|---|
+| **A — chunk size** | 400 → 64.9% / MRR 0.433 · **800 (current) → 78.4% / 0.596** · 1600 → **81.1% / 0.610** |
+| **B — search strategy** | **similarity 81.1% / 0.610** · mmr 73.0% / 0.591 · threshold — *invalid, see below* |
+| **C — reranker** | OFF 81.1% / 0.610 · **ON 86.5% / 0.685** (+5.4pp, +0.075 MRR, 8s → 45s) |
+| **D — k** | k=3 75.7% · **k=5 81.1%** · k=10 86.5% (hit-rate rises mechanically; MRR barely moves) |
+| **Combined vs current** | 800/sim/k=5 → 78.4% / 0.596 · **1600/sim/k=5/rerank → 86.5% / 0.685** (+8.1pp, +0.088) |
+
+Three findings worth the space:
+
+- **Small chunks hurt, and the category breakdown says why**: at 400 characters
+  `vfd_fault_code` collapses from 82% to 59%, because a fault entry's *Cause* and *Remedy*
+  end up in different chunks.
+- **The reranker earns its keep, and not just by fetching more.** It reaches exactly the same
+  hit-rate as plain `k=10` (86.5%) but with a clearly better MRR (0.685 vs 0.619) while
+  returning **half the context** — so the LLM call is buying ordering, not merely coverage.
+- **The `similarity_score_threshold` arm is invalid, not merely worse.** The collection uses
+  `hnsw.space='l2'`, so LangChain's Euclidean relevance function returned scores outside 0-1
+  (several negative) and the threshold discarded chunks regardless of relevance. Reported as
+  a broken metric rather than quietly dropped; testing it properly needs a cosine-space
+  collection.
+
+Production config was **not** changed on the strength of this: moving to `chunk_size=1600`
+means rebuilding the main store and re-running notebooks 02-10, which is a separate decision.
+
 ## Session note (2026-08-25) — read this FIRST before continuing
 
 Most recent session. Supersedes the notes below for "what to do next".
