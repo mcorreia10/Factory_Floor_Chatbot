@@ -1,11 +1,12 @@
 import io
+import itertools
 import os
 from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
-from factory_floor.agent import run_diagnostic_agent
+from factory_floor.agent import stream_diagnostic_agent
 from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR
 from factory_floor.machines import get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
@@ -209,24 +210,35 @@ def submit_turn(question_text, uploaded_photo):
     chat_history = build_chat_history(st.session_state["turns"])
     machine_id = st.session_state["selected_machine"]["machine_id"]
 
+    st.markdown(
+        f"**Q{len(st.session_state['turns']) + 1}.** "
+        f"{question_text or '[Uploaded a photo of a component]'}"
+    )
+
+    generator, streamed = stream_diagnostic_agent(
+        question_text,
+        retriever,
+        machine_id,
+        chat_history=chat_history,
+        vision_context=vision_context,
+        llm=llm,
+        language=answer_language,
+    )
+
     with st.spinner("Reasoning about the evidence..."):
-        result = run_diagnostic_agent(
-            question_text,
-            retriever,
-            machine_id,
-            chat_history=chat_history,
-            vision_context=vision_context,
-            llm=llm,
-            language=answer_language,
-        )
+        first_chunk = next(generator, None)
+
+    st.subheader("Diagnostic reasoning")
+    if first_chunk is not None:
+        st.write_stream(itertools.chain([first_chunk], generator))
 
     turn = {
         "type": "agent",
         "question": question_text or "[Uploaded a photo of a component]",
-        "answer": result["answer"],
-        "documents": result["documents"],
-        "sources": result["sources"],
-        "tool_trace": result["tool_trace"],
+        "answer": streamed.answer,
+        "documents": streamed.documents,
+        "sources": streamed.sources,
+        "tool_trace": streamed.tool_trace,
         "image_bytes": image_bytes,
         "predicted_label": classification["predicted_label"] if classification else None,
         "is_defective": classification["is_defective"] if classification else None,

@@ -35,7 +35,19 @@
       "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/07_orchestrator_agent.ipynb)",
       "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/08_tracing_observability.ipynb)",
       "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/09_safety_validator.ipynb)",
-      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/10_evaluation_baseline.ipynb)"
+      "PowerShell(python -m nbconvert --to notebook --execute --inplace notebooks/10_evaluation_baseline.ipynb)",
+      "PowerShell(git push)",
+      "PowerShell(git config user.name \"Marcelo Correia\")",
+      "PowerShell(git config user.email \"marcelocorreia93@hotmail.com\")",
+      "PowerShell(git commit --amend --reset-author --no-edit)",
+      "PowerShell(git push --force-with-lease)",
+      "PowerShell(python -c \"import docx; d=docx.Document\\(r'C:\\\\Users\\\\se25479\\\\Downloads\\\\Marcelo_Correia_AI_Engineer_CV_v2.docx'\\); [print\\(p.text\\) for p in d.paragraphs if p.text.strip\\(\\)]\")",
+      "PowerShell(python -c \"import docx2pdf\" 2>&1; python -c \"import comtypes\" 2>&1)",
+      "PowerShell(pip install *)",
+      "PowerShell(python -m pip install docx2pdf comtypes --quiet)",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(python -m streamlit run app.py --server.headless true)",
+      "PowerShell(Start-Sleep -Seconds 6; try { $r = Invoke-WebRequest -Uri \"http://localhost:8501\" -UseBasicParsing -TimeoutSec 10; \"HTTP $\\($r.StatusCode\\)\" } catch { \"ERROR: $_\" })"
     ]
   }
 }

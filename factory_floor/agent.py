@@ -1,5 +1,5 @@
 from langchain.agents import create_agent
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 
 from factory_floor.machines import get_machine_history
@@ -153,21 +153,21 @@ def _extract_tool_trace(messages: list) -> list:
     return trace
 
 
-def run_diagnostic_agent(
+def _build_agent_run(
     question_text: str,
     retriever,
     machine_id: str,
-    chat_history: list = None,
-    vision_context: str = None,
-    llm=None,
-    language: str = "English",
-    config: dict = None,
-) -> dict:
-    """Single entry point, same spirit as rag.ask(). question_text and/or
-    vision_context may be provided (an operator can submit a symptom, a photo, or
-    both) — at least one is expected by the caller.
+    chat_history: list,
+    vision_context: str,
+    llm,
+    language: str,
+    config: dict,
+):
+    """Shared setup for both the blocking (run_diagnostic_agent) and streaming
+    (stream_diagnostic_agent) entry points, so a blocking call and a streamed call
+    for the 'same' request build an identical agent, message list, and run config.
 
-    `config` is an optional RunnableConfig-shaped dict forwarded to agent.invoke(); a
+    `config` is an optional RunnableConfig-shaped dict forwarded to the agent; a
     caller can pass e.g. {"tags": [...]} to add to the defaults below, or nothing at
     all (the default trace_config already tags/names every run so it shows up
     meaningfully in LangSmith without any caller effort)."""
@@ -199,6 +199,26 @@ def run_diagnostic_agent(
     )
     run_config = {**default_config, **(config or {})}
 
+    return agent, retrieved_docs, messages, run_config
+
+
+def run_diagnostic_agent(
+    question_text: str,
+    retriever,
+    machine_id: str,
+    chat_history: list = None,
+    vision_context: str = None,
+    llm=None,
+    language: str = "English",
+    config: dict = None,
+) -> dict:
+    """Single entry point, same spirit as rag.ask(). question_text and/or
+    vision_context may be provided (an operator can submit a symptom, a photo, or
+    both) — at least one is expected by the caller."""
+    agent, retrieved_docs, messages, run_config = _build_agent_run(
+        question_text, retriever, machine_id, chat_history, vision_context, llm, language, config,
+    )
+
     result = agent.invoke({"messages": messages}, config=run_config)
     answer = result["messages"][-1].content
     tool_trace = _extract_tool_trace(result["messages"])
@@ -212,3 +232,70 @@ def run_diagnostic_agent(
         "language": language,
         "run_id": str(run_config["run_id"]),
     }
+
+
+class StreamedAgentRun:
+    """Populated once the generator returned by stream_diagnostic_agent() is fully
+    consumed (by st.write_stream() in app.py, or "".join(gen)/list(gen) in a
+    notebook/test — this class has no Streamlit dependency). Same information as
+    run_diagnostic_agent()'s returned dict, just delivered as attributes after the
+    fact instead of as a dict up front, since 'answer' isn't known until generation
+    finishes."""
+
+    def __init__(self, question_text, language, run_id):
+        self.question = question_text
+        self.language = language
+        self.run_id = run_id
+        self.answer = None
+        self.documents = []
+        self.sources = None
+        self.tool_trace = None
+
+
+def stream_diagnostic_agent(
+    question_text: str,
+    retriever,
+    machine_id: str,
+    chat_history: list = None,
+    vision_context: str = None,
+    llm=None,
+    language: str = "English",
+    config: dict = None,
+):
+    """Streaming counterpart to run_diagnostic_agent() — identical inputs/setup (via
+    _build_agent_run), but returns (generator, result) instead of a finished dict.
+    generator yields str chunks of ONLY real, user-visible answer text; result is a
+    StreamedAgentRun left empty until the generator is exhausted by the caller.
+
+    agent.stream({"messages": messages}, config=run_config, stream_mode=["messages",
+    "values"]) yields (mode, payload) pairs: "messages" pairs with (message_chunk,
+    metadata) token deltas, "values" pairs with the graph's cumulative state (the
+    last one is shape-identical to what agent.invoke() returns). During tool-call
+    decisions, AIMessageChunk.content is always '' (the JSON args live only in
+    .tool_call_chunks) and the tool's own result flows through as a full ToolMessage,
+    not a chunk — so `isinstance(message_chunk, AIMessageChunk) and
+    message_chunk.content` reliably isolates only the final synthesis phase's real
+    text, verified to reconstruct a string byte-identical to agent.invoke()'s answer."""
+    agent, retrieved_docs, messages, run_config = _build_agent_run(
+        question_text, retriever, machine_id, chat_history, vision_context, llm, language, config,
+    )
+    result = StreamedAgentRun(question_text, language, str(run_config["run_id"]))
+
+    def _generate():
+        final_values = None
+        for mode, payload in agent.stream(
+            {"messages": messages}, config=run_config, stream_mode=["messages", "values"]
+        ):
+            if mode == "messages":
+                message_chunk, _metadata = payload
+                if isinstance(message_chunk, AIMessageChunk) and message_chunk.content:
+                    yield message_chunk.content
+            elif mode == "values":
+                final_values = payload
+        final_messages = final_values["messages"]
+        result.answer = final_messages[-1].content
+        result.documents = retrieved_docs
+        result.sources = source_list_from_docs(retrieved_docs)
+        result.tool_trace = _extract_tool_trace(final_messages)
+
+    return _generate(), result
