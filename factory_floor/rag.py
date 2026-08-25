@@ -170,9 +170,17 @@ class CodeAwareRetriever:
         if not codes:
             return self.semantic_retriever.invoke(query)
 
+        # A bare code is answered entirely by the literal hits; there is nothing else in
+        # the question for a semantic search to be about. Padding the result out to k
+        # actively hurts: a bare code's nearest semantic neighbours are pages dense with
+        # unrelated alphanumerics — motor catalogue nameplate rows like
+        # "1LE15433AB434AA4-Z ... 6209-2ZC3" score as "similar" to "F30021" precisely
+        # because of the weakness this class exists to work around.
+        has_text = self._has_searchable_text(query, codes)
+        per_code = 2 if has_text else max(1, self.k // len(codes))
+
         pinned = []
         seen = set()
-        found_any = False
         for code in codes:
             hits = lookup_code(self.vectorstore, code, equipment_type=self.equipment_type)
             if not hits:
@@ -188,33 +196,37 @@ class CodeAwareRetriever:
                     )
                 )
                 continue
-            found_any = True
-            for doc in hits[:2]:  # the definition, plus its runner-up for cause/remedy text
+            for doc in hits[:per_code]:  # definition first, then its cause/remedy runner-up
                 key = (doc.metadata.get("source_file"), doc.metadata.get("page"))
                 if key not in seen:
                     seen.add(key)
                     pinned.append(doc)
 
-        # Nothing found, and the operator gave nothing to search on besides the code: do
-        # NOT pad the result with semantic neighbours. They would be real manual pages
-        # about unrelated faults, shown to the operator as "sources" underneath an answer
-        # that correctly says the code is undocumented — the exact misleading pairing
-        # this whole change exists to remove.
-        if not found_any and not self._has_searchable_text(query, codes):
-            return pinned
+        # Covers both "bare code, found it" (the literal hits are the whole answer) and
+        # "bare code, not in the corpus" (padding would put real manual pages about
+        # unrelated faults under an answer that correctly says nothing was found).
+        if not has_text:
+            return pinned[: self.k]
 
         remaining = self.k - len(pinned)
         if remaining <= 0:
             return pinned[: self.k]
 
-        # Semantic results still add value (plain-language versions in the Operating
-        # Instructions, related symptoms), they just must not outrank the definition.
-        semantic = [
-            doc
-            for doc in self.semantic_retriever.invoke(query)
-            if (doc.metadata.get("source_file"), doc.metadata.get("page")) not in seen
-        ]
-        return pinned + semantic[:remaining]
+        # The operator described something as well, so semantic results genuinely add
+        # value (plain-language versions in the Operating Instructions, related
+        # symptoms) — they just must not outrank the definition. Dedup against each
+        # other too, not only against the pinned hits: two chunks of the same page share
+        # a (file, page) key and would otherwise both be listed as separate sources.
+        semantic = []
+        for doc in self.semantic_retriever.invoke(query):
+            key = (doc.metadata.get("source_file"), doc.metadata.get("page"))
+            if key in seen:
+                continue
+            seen.add(key)
+            semantic.append(doc)
+            if len(semantic) >= remaining:
+                break
+        return pinned + semantic
 
 
 def build_retriever(vectorstore, k=5, equipment_type=None, rerank=False, rerank_llm=None,
