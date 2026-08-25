@@ -15,6 +15,34 @@ This package implements the project up to the following build order:
 9. Conversation history ✅ (history-aware follow-up questions)
 10. Maintenance history ✅ (owner-confirmed done 2026-08-19 — simulated structured fault/repair log per machine, machine selector + history display + RAG filter working)
 
+## What changed on 2026-08-25
+
+Six commits, in the order they happened. Detail for each is further down; this is the map.
+
+| # | Change | Headline result |
+|---|---|---|
+| 1 | **Reranker** (`rag.py::rerank_documents`, `RerankingRetriever`) | Fetches a wider pool and reorders it with one LLM call. Later measured: same coverage as `k=10` with better ordering on half the context |
+| 2 | **Photo-context memory fix** (`rag.py::build_chat_history`) | A follow-up after a photo no longer forgets the classification and re-asks for the image |
+| 3 | **Machine context for the agent** (`agent.py::format_machine_context`) | The agent is told which machine is selected, so it stops asking whether it is a motor or a VFD — information the sidebar already established |
+| 4 | **Reranker output leak fixed** (`agent.py::stream_diagnostic_agent`) | The reranker's ranking digits (`0,14,13,...`) were streaming to the operator ahead of the answer; filtered by `langgraph_node` |
+| 5 | **Exact fault-code lookup** (`fault_codes.py`, `CodeAwareRetriever`) | Bare-code queries: definition page **18% → 100%**. Unknown codes now refused instead of answered from a similar one |
+| 6 | **Retrieval ablation study** (`notebooks/11_retrieval_benchmark.ipynb`) | chunk size / search strategy / reranker / k, measured. Combined best config **+8.1pp hit-rate, +0.088 MRR** over current |
+
+Two things were tried and **deliberately abandoned**, both written up rather than quietly dropped:
+
+- **Replacing the MVTec vision dataset with real thermal motor images.** The candidate dataset
+  trains to 98.9% but its 369 images are only **11 independent scenes** of near-identical frames
+  (neighbouring frames differ by 0.55–2.47 grey levels out of 255), with one scene for three of
+  the four classes — so no split can measure generalisation. Every dataset checked and the cheap
+  neighbouring-frame test that exposed it are in `dificuldades_e_oportunidades.md` #12.
+- **A component-identity classifier** on the existing MVTec data. It worked (100% vs a 31.4%
+  majority baseline, robust to greyscale/inversion/rotation/noise) and did fix the agent's
+  behaviour, but was reverted at the owner's call: the categories each have their own capture
+  background, so transfer to a photo taken inside a real drive was never established.
+
+New artefacts: `fault_codes.csv` (368 real codes), `Retrieval_Benchmark_Report.pdf` (the ablation
+study as a standalone 4-page report), `build_fault_code_index.py`, and roadmap slide 5.
+
 ## Compliance checklist (bootcamp core requirements) — added 2026-08-19
 
 This project is the final project for an AI Engineering Bootcamp ("The Factory Floor",
@@ -84,6 +112,14 @@ Three findings worth the space:
 
 Production config was **not** changed on the strength of this: moving to `chunk_size=1600`
 means rebuilding the main store and re-running notebooks 02-10, which is a separate decision.
+
+The same study is written up as a standalone 4-page report in
+**`Retrieval_Benchmark_Report.pdf`** — method, all four axes, the combined-vs-current
+comparison and the limitations, in a form that can be handed to someone who will not open a
+notebook.
+
+The variant stores are gitignored and rebuildable in ~3 min each. To reclaim the ~434 MB:
+`rm -rf data/vectorstore_cs400 data/vectorstore_cs1600`
 
 ## Session note (2026-08-25) — read this FIRST before continuing
 
