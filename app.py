@@ -205,7 +205,8 @@ def submit_turn(question_text, uploaded_photo):
         )
 
     retriever = build_retriever(
-        vectorstore, k=TOP_K, equipment_type=st.session_state["selected_machine"]["equipment_type"]
+        vectorstore, k=TOP_K, equipment_type=st.session_state["selected_machine"]["equipment_type"],
+        rerank=True, rerank_llm=llm,
     )
     chat_history = build_chat_history(st.session_state["turns"])
     machine_id = st.session_state["selected_machine"]["machine_id"]
@@ -240,6 +241,7 @@ def submit_turn(question_text, uploaded_photo):
         "sources": streamed.sources,
         "tool_trace": streamed.tool_trace,
         "image_bytes": image_bytes,
+        "vision_context": vision_context,
         "predicted_label": classification["predicted_label"] if classification else None,
         "is_defective": classification["is_defective"] if classification else None,
         "language": answer_language,

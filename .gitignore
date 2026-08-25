@@ -17,5 +17,8 @@ data/vision_model/
 # OS
 .DS_Store
 
+# Office lock files (created while a .pptx/.docx is open, deleted on close)
+~$*
+
 # Logs
 streamlit.log

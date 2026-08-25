@@ -53,18 +53,85 @@ def contextualize_question(question, chat_history, llm=None):
 
 
 def build_chat_history(turns, max_turns=MAX_HISTORY_TURNS):
+    """Replays each turn's question and answer as messages the LLM can see on the next
+    call. A photo turn's vision_context (e.g. 'predicted condition = deformation...')
+    is folded back in here too — without this, a follow-up question loses all memory
+    of a photo classified earlier in the conversation, since the turn's stored
+    'question' is only the operator's typed text, never the vision result."""
     messages = []
     for turn in turns[-max_turns:]:
-        messages.append(HumanMessage(content=turn["question"]))
+        human_parts = []
+        if turn.get("question"):
+            human_parts.append(turn["question"])
+        if turn.get("vision_context"):
+            human_parts.append(turn["vision_context"])
+        human_content = "\n\n".join(human_parts) if human_parts else "(no additional information provided)"
+        messages.append(HumanMessage(content=human_content))
         messages.append(AIMessage(content=turn["answer"]))
     return messages
 
 
-def build_retriever(vectorstore, k=5, equipment_type=None):
-    kwargs = {"k": k}
+RERANK_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", "You are a relevance-ranking component for a technical manual search system. Given a "
+               "query and a numbered list of candidate excerpts, return ONLY a comma-separated list of "
+               "the excerpt numbers, ordered from most to least relevant to the query. Include every "
+               "number exactly once. No explanation, no other text."),
+    ("human", "QUERY: {query}\n\nCANDIDATES:\n{candidates}"),
+])
+
+
+def rerank_documents(query, docs, llm=None, top_n=5):
+    """Re-scores a wider candidate pool by true relevance to the query via one LLM call —
+    unlike Chroma's raw vector distance, this can recover a chunk that mentions the exact
+    fault code but wasn't the semantically closest neighbor (dificuldades_e_oportunidades.md,
+    difficulty #1). Fails open: any parsing problem falls back to the original vector-search
+    order, never raises."""
+    if len(docs) <= top_n:
+        return docs
+    llm = llm or get_llm()
+    candidates = "\n\n".join(f"[{i}] {doc.page_content[:600]}" for i, doc in enumerate(docs))
+    messages = RERANK_PROMPT.format_messages(query=query, candidates=candidates)
+    response = llm.invoke(messages)
+    try:
+        order = [int(tok.strip()) for tok in response.content.split(",") if tok.strip().lstrip("-").isdigit()]
+        seen = set()
+        ranked = []
+        for i in order:
+            if 0 <= i < len(docs) and i not in seen:
+                ranked.append(docs[i])
+                seen.add(i)
+        ranked += [doc for i, doc in enumerate(docs) if i not in seen]
+        return ranked[:top_n]
+    except Exception:
+        return docs[:top_n]
+
+
+class RerankingRetriever:
+    """Duck-types the .invoke(query) interface every caller in this project already uses
+    (agent.py's search_manuals tool, rag.py's ask()) — fetches a wider candidate pool from
+    the base retriever, then narrows it back to top_n via rerank_documents(). Opt-in via
+    build_retriever(..., rerank=True); every existing caller that doesn't pass it keeps the
+    exact previous behavior."""
+
+    def __init__(self, base_retriever, llm, top_n):
+        self.base_retriever = base_retriever
+        self.llm = llm
+        self.top_n = top_n
+
+    def invoke(self, query):
+        candidates = self.base_retriever.invoke(query)
+        return rerank_documents(query, candidates, llm=self.llm, top_n=self.top_n)
+
+
+def build_retriever(vectorstore, k=5, equipment_type=None, rerank=False, rerank_llm=None, fetch_k=None):
+    fetch_k = fetch_k or max(k * 3, 12)
+    kwargs = {"k": fetch_k if rerank else k}
     if equipment_type:
         kwargs["filter"] = {"equipment_type": equipment_type}
-    return vectorstore.as_retriever(search_kwargs=kwargs)
+    base = vectorstore.as_retriever(search_kwargs=kwargs)
+    if rerank:
+        return RerankingRetriever(base, rerank_llm or get_llm(), top_n=k)
+    return base
 
 
 def format_context(docs):
