@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from factory_floor.agent import stream_diagnostic_agent
 from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR
+from factory_floor.fault_codes import extract_possible_codes
 from factory_floor.machines import get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
 from factory_floor.rag import build_chat_history, build_retriever, get_llm
@@ -102,7 +103,10 @@ def load_vision_components():
 
 def source_rows(docs):
     rows = []
-    for i, doc in enumerate(docs, 1):
+    # The code-not-found notice travels with the documents so the model sees it, but it
+    # is an instruction, not a manual page — listing it as a source would put a fake row
+    # under an answer that correctly says nothing was found.
+    for i, doc in enumerate([d for d in docs if not d.metadata.get("not_found")], 1):
         rows.append(
             {
                 "source": f"SOURCE {i}",
@@ -159,12 +163,12 @@ def render_turn(turn, turn_index):
             "safety-critical."
         )
 
-    if turn.get("documents"):
+    if any(not d.metadata.get("not_found") for d in (turn.get("documents") or [])):
         st.subheader("Sources retrieved")
         st.dataframe(source_rows(turn["documents"]), use_container_width=True, hide_index=True)
 
         with st.expander("Show retrieved evidence"):
-            for i, doc in enumerate(turn["documents"], 1):
+            for i, doc in enumerate([d for d in turn["documents"] if not d.metadata.get("not_found")], 1):
                 source = doc.metadata.get("source_file", "unknown")
                 page = doc.metadata.get("page", 0) + 1
                 st.markdown(f"### {source}, page {page}")
@@ -186,6 +190,20 @@ def submit_turn(question_text, uploaded_photo):
         st.warning("Enter a maintenance question or upload a photo first.")
         return
 
+    # A mistyped code is a different situation from an unknown one, and only the operator
+    # can tell them apart — so ask, rather than silently correcting and answering about a
+    # code they never asked about. Runs before any API call is made.
+    if not st.session_state.pop("code_typo_confirmed", False):
+        typos = extract_possible_codes(question_text)
+        if typos:
+            as_typed, suggestion = typos[0]
+            st.session_state["pending_typo"] = {
+                "question": question_text,
+                "as_typed": as_typed,
+                "suggestion": suggestion,
+            }
+            return
+
     classification = None
     vision_context = None
     image_bytes = None
@@ -206,7 +224,7 @@ def submit_turn(question_text, uploaded_photo):
 
     retriever = build_retriever(
         vectorstore, k=TOP_K, equipment_type=st.session_state["selected_machine"]["equipment_type"],
-        rerank=True, rerank_llm=llm,
+        rerank=True, rerank_llm=llm, code_aware=True,
     )
     chat_history = build_chat_history(st.session_state["turns"])
     machine_id = st.session_state["selected_machine"]["machine_id"]
@@ -329,6 +347,26 @@ with form_col:
         )
         if st.button("Search manuals and answer", type="primary", use_container_width=True):
             submit_turn(question, uploaded_photo)
+
+    pending = st.session_state.get("pending_typo")
+    if pending:
+        st.warning(
+            f"**{pending['as_typed']}** is not a code in these manuals, but "
+            f"**{pending['suggestion']}** is — the two are easy to confuse when reading a "
+            f"converter display. Which did you mean?"
+        )
+        confirm_col, keep_col = st.columns(2)
+        with confirm_col:
+            if st.button(f"Yes, I meant {pending['suggestion']}", type="primary", use_container_width=True):
+                corrected = pending["question"].replace(pending["as_typed"], pending["suggestion"])
+                st.session_state["code_typo_confirmed"] = True
+                st.session_state.pop("pending_typo")
+                submit_turn(corrected, None)
+        with keep_col:
+            if st.button(f"No, it really is {pending['as_typed']}", use_container_width=True):
+                st.session_state["code_typo_confirmed"] = True
+                st.session_state.pop("pending_typo")
+                submit_turn(pending["question"], None)
 
 for idx, turn in enumerate(st.session_state["turns"]):
     render_turn(turn, idx)

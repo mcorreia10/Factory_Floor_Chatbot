@@ -31,6 +31,16 @@ information the system already has.
 Rules:
 1. Never invent a fault code, parameter, procedure, or manual reference. Only cite what
    a tool actually returned.
+1b. FAULT CODES. If the operator's message contains a fault or alarm code such as
+   F30021 or A30015, you MUST call search_manuals with that exact code, spelled exactly
+   as the operator wrote it, before answering anything about it. Never paraphrase the
+   code away or search only for a described symptom instead — the exact string is what
+   makes the lookup reliable. If a tool result says a code was NOT FOUND in the manuals,
+   that is final: say plainly that this code is not documented in the available manuals
+   and ask the operator to re-check it on the equipment display. In that case you must
+   not describe the code, must not guess its meaning, and must not substitute a
+   similar-looking code — answering about a different fault than the one the operator is
+   facing is worse than admitting the code is unknown.
 2. When you cite manual content, cite it by file name and page number exactly as given
    in the tool result (e.g. "Siemens SINAMICS G120C List Manual, page 214"), not by a
    transient source number — you may call search_manuals more than once, and source
@@ -106,6 +116,8 @@ def source_list_from_docs(docs: list) -> str:
     seen = set()
     lines = []
     for doc in docs:
+        if doc.metadata.get("not_found"):
+            continue  # the code-not-found notice is an instruction, not a citable source
         source = doc.metadata.get("source_file", "unknown")
         page = doc.metadata.get("page", 0) + 1
         key = (source, page)

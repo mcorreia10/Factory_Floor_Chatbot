@@ -13,3 +13,4 @@ VISION_MODEL_DIR = PROJECT_ROOT / "data" / "vision_model"
 DEFECT_MANIFEST_CSV = PROJECT_ROOT / "defect_image_manifest.csv"
 
 EVAL_SCENARIOS_CSV = PROJECT_ROOT / "eval_scenarios.csv"
+FAULT_CODES_CSV = PROJECT_ROOT / "fault_codes.csv"

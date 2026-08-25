@@ -6,7 +6,60 @@ oportunidades de melhoria identificadas para as próximas fases rumo ao projeto 
 
 ## Dificuldades do projeto
 
-### 1. Busca por embedding não é confiável para identificadores alfanuméricos exatos
+### 1. ~~Busca por embedding não é confiável para identificadores alfanuméricos exatos~~ — RESOLVIDO a 2026-08-25
+
+O diagnóstico abaixo continua correto, e a limitação do embedding é real e permanente — o que
+mudou foi deixar de usar o embedding para esta tarefa. Um código não é procurado, é **consultado**.
+
+**O que foi construído** (`factory_floor/fault_codes.py`, `CodeAwareRetriever` em
+`factory_floor/rag.py`):
+- Deteção do padrão `\b([FA]\d{5})\b` na mensagem do operador. Sem código, o retriever delega
+  no caminho semântico de sempre — perguntas normais não mudam absolutamente nada.
+- Consulta **literal**, via o filtro de texto integral do próprio Chroma
+  (`where_document={"$contains": code}`, índice trigram, portanto substring verdadeira). Sem
+  dependências novas e sem reindexar seja o que for.
+- Pontuação por regex para escolher, entre todas as ocorrências literais, a que é mesmo a
+  **definição** — penaliza `See also:`/`Note:` antes do código e listas de códigos, premia um
+  prefixo de subsistema (`Power unit:`, `Drive:`, …) logo a seguir. É a mesma regra
+  best-match-per-code da auditoria de 2026-08-18-d, agora em código em vez de num script
+  descartável. Necessária: a primeira ocorrência literal de `F30021` é uma referência cruzada
+  inútil (p.62), a definição real está na p.908.
+- Os acertos exatos ficam **fixos no topo** e não passam pelo reranker — um LLM a reordenar
+  podia enterrar exatamente o chunk que define o código.
+
+**Números reais medidos**, consulta com **apenas o código, sem sintoma**, sobre os 17 códigos
+verificados do README:
+
+| | Contém o código | **Traz a página da definição** |
+|---|---|---|
+| Antes (semântico + reranker) | 14/17 (82%) | **3/17 (18%)** |
+| Depois (code-aware) | 17/17 (100%) | **17/17 (100%)** |
+
+A segunda coluna é a que conta: antes, mesmo quando o código aparecia algures no contexto, a
+página que **define** a avaria quase nunca lá estava.
+
+**O guardrail, que era o risco mais grave descrito abaixo**: zero acertos literais é um sinal
+limpo e inequívoco (`F99999` → 0 chunks, verificado), e produz um aviso explícito à cabeça do
+contexto mais a regra 1b do `DIAGNOSTIC_SYSTEM_PROMPT`. Verificado ao vivo: escrever só `F99999`
+devolve *"is not documented in the available manuals... please re-check the fault code on the
+equipment display"*, em vez de descrever outra avaria. Quando o código não existe **e** não há
+mais nada na pergunta, os resultados semânticos são suprimidos por completo — senão a UI
+mostraria "fontes" por baixo de uma resposta que diz não ter encontrado nada.
+
+**Erros de digitação, tratados à parte**: `F3OO21` (letra O em vez de zero) não é o mesmo que um
+código inexistente. O `difflib` não serve aqui — nem a cutoff 0.75 liga `F3OO21` a `F30021`,
+porque vê `O` e `0` como caracteres sem relação. A normalização das confusões reais de display
+(O↔0, I↔1, S↔5, B↔8, Q, L, Z) resolve-o exatamente, e a app **pergunta** ao operador qual quis
+dizer em vez de corrigir sozinha. Guarda contra falsos positivos: exige pelo menos 3 dígitos
+verdadeiros, senão palavras como `FOSSIL` ou `BOBBIN` seriam apanhadas.
+
+**Novo artefacto**: `fault_codes.csv` — 368 códigos reais (206 F / 162 A) com ficheiro, página e
+definição, gerado por `build_fault_code_index.py` e committado como dados de referência
+estáticos, mesma convenção do `machines.csv`. Inspecionável à mão.
+
+O registo original da dificuldade fica abaixo, riscado, como já se fez com os itens #8/#9/#10.
+
+### ~~1 (registo original)~~ Busca por embedding não é confiável para identificadores alfanuméricos exatos
 
 Códigos de falha como `F30021` não têm "significado" próprio para um modelo de embeddings — são
 etiquetas, não conceitos. Como as páginas do List Manual seguem todas a mesma estrutura repetitiva

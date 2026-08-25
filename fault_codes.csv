@@ -1,0 +1,369 @@
+code,kind,source_file,page,definition
+A01009,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,820,(N) CU: Control module overtemperature
+A01016,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,821,(F) Firmware changed
+A01017,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,821,Component lists changed
+A01019,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,822,Writing to the removable data medium unsuccessful
+A01020,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,822,Writing to RAM disk unsuccessful
+A01021,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,823,Removable data medium as USB data storage medium from the PC used
+A01028,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,394,Configuration error Explanation: The parameter assignments on the memory card were made with
+A01035,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,824,(F) ACX: Parameter back-up file corrupted
+A01045,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,828,Configuring data invalid
+A01049,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,828,It is not possible to write to file
+A01064,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,829,(F) CU: Internal error (CRC)
+A01066,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,829,Buffer memory: 70% fill level reached or exceeded
+A01067,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,829,Buffer memory: 100 % fill level reached
+A01069,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,830,Parameter backup and device incompatible
+A01073,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,830,(N) POWER ON required for backup copy on memory card
+A01101,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,394,Memory card not available Insert a memory card or deactivate alarm A01101.
+A01251,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,832,CU: CU-EEPROM incorrect read-write data
+A01514,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,835,(F) BICO: Error when writing during a reconnect
+A01590,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,394,Motor maintenance interval ex‐
+A01600,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,666,... 01699
+A01654,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,843,(F) SI P1 (CU): Deviating PROFIsafe configuration
+A01666,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,Static 1 signal at the F-DI for safe
+A01669,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,847,"(F, N) SI Motion: Unfavorable combination of motor and power unit"
+A01678,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,669,"[2804.1], [2810.5]"
+A01693,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,850,"(F) SI P1 (CU): Safety parameter setting changed, POWER ON required"
+A01696,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,850,(F) SI Motion: Test stop for the motion monitoring functions selected when booting
+A01697,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,850,(F) SI Motion: Test stop for motion monitoring functions required
+A01698,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,Commissioning mode active for
+A01699,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,Switch-off signal path test re‐
+A01706,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,852,SI Motion P1 (CU): SAM/SBR limit exceeded
+A01711,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,853,SI Motion P1 (CU): Defect in a monitoring channel
+A01712,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,856,SI Motion P1 (CU): Defect in F-IO processing
+A01714,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,857,SI Motion P1 (CU): Safely-Limited Speed exceeded
+A01716,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,857,SI Motion P1 (CU): Tolerance for safe motion direction exceeded
+A01788,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,859,SI: Automatic test stop waits for STO deselection via motion monitoring functions
+A01790,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,859,SI: Power up stopped due to STO via terminals
+A01796,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,860,"(F, N) SI P1 (CU): Wait for communication"
+A01798,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,860,SI Motion P1 (CU): Test stop for motion monitoring functions running
+A01799,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,860,SI Motion P1 (CU): Acceptance test mode active
+A01900,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,PROFIBUS: Configuration tele‐
+A01910,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,F01910
+A01920,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,PROFIBUS: Cyclic connection in‐
+A01945,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,861,PROFIBUS: Connection to the Publisher failed
+A01953,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,862,CU SYNC: Synchronization not completed
+A02050,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,862,Trace: Start not possible
+A02051,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,862,Trace: recording not possible as a result of know-how protection
+A02055,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,862,Trace: Recording time too short
+A02056,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,863,Trace: Recording cycle too short
+A02057,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,863,Trace: Time slice clock cycle invalid
+A02058,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,863,Trace: Time slice clock cycle for endless trace not valid
+A02059,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,863,Trace: Time slice clock cycle for 2 x 8 recording channels not valid
+A02060,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,863,Trace: Signal to be traced missing
+A02061,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,863,Trace: Invalid signal
+A02062,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,864,Trace: Invalid trigger signal
+A02063,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,864,Trace: Invalid data type
+A02070,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,864,Trace: Parameter cannot be changed
+A02075,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,864,Trace: Pretrigger time too long
+A02095,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,864,MTrace 0: multiple trace cannot be activated
+A02096,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,864,MTrace 0: cannot be saved
+A02097,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,865,MTrace 1: multiple trace cannot be activated
+A02098,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,865,MTrace 1: cannot be saved
+A02099,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,865,Trace: Insufficient Control Unit memory
+A02150,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,866,OA: Application cannot be loaded
+A03510,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,867,"(F, N) Calibration data not plausible"
+A03520,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,Temperature sensor fault Check that the sensor is connected correctly.
+A03560,alarm,Siemens_G120_Fieldbus_Function_Manual.pdf,239,)1) not used
+A03561,alarm,Siemens_G120_Fieldbus_Function_Manual.pdf,239,)1) not used
+A05000,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,794,"""Overtemperature heat sink AC inverter"""
+A05001,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,64,Description: Sets the alarm threshold for the I2t power unit overload.
+A05002,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,794,"""Air intake overtemperature"""
+A05004,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,868,(N) Power unit: Rectifier overtemperature
+A05006,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,396,Power Module overtemperature Check the following:
+A05065,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,869,"(F, N) Voltage measured values not plausible"
+A06921,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,869,(N) Braking resistor phase asymmetry
+A07012,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,790,Motor temperature model 2: A07910
+A07014,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,396,"Notice: When selecting a catalog motor (p0301), this parameter is automatically pre-assigned and is write protected."
+A07015,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,871,Drive: Motor temperature sensor alarm
+A07089,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,873,Changing over units: Function module activation is blocked because the units have
+A07092,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,874,Drive: moment of inertia estimator still not ready
+A07094,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,874,General parameter limit violation
+A07200,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,874,Drive: Master control ON command present
+A07321,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,875,Drive: Automatic restart active
+A07352,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,876,Drive: Limit switch signals not plausible
+A07400,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,876,(N) Drive: DC link voltage maximum controller active
+A07401,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,59,is output.
+A07402,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,877,(N) Drive: DC link voltage minimum controller active
+A07409,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,877,"(N) Drive: U/f control, curre nt limiting controller active"
+A07416,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,878,Drive: Flux controller configuration
+A07428,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,879,(N) Technology controller parameterizing error
+A07444,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,879,PID autotuning is activated
+A07530,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,880,Drive: Drive Data Set DDS not present
+A07531,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,880,Drive: Command Data Set CDS not present
+A07805,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,397,Drive: Power unit overload I2t • Reduce the continuous load.
+A07850,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,397,"External alarm 1 The signal for ""external alarm 1"" has been triggered."
+A07851,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,328,) effective Yes No 8065
+A07852,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,328,) effective Yes No 8065
+A07891,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,884,Drive: Load monitoring pump/fan blocked
+A07892,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,884,Drive: Load monitoring pump/fan no load condition
+A07893,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,884,Drive: Load monitoring pump leakage
+A07903,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,886,Drive: Motor speed deviation
+A07910,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,397,Motor overtemperature Check the motor load.
+A07920,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,887,Drive: Torque/speed too low
+A07921,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,887,Drive: Torque/speed too high
+A07922,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,887,Drive: Torque/speed out of tolerance
+A07926,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,888,Drive: Envelope curve parameter invalid
+A07927,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,889,DC braking active
+A07929,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,795,1
+A07960,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,889,Drive: Incorrect friction characteristic
+A07961,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,890,Drive: Friction characteristic record activated
+A07980,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,893,Drive: Rotating measurement activated
+A07981,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,893,Drive: Enable signals for the rotating measurement missing
+A07991,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,398,Motor data identification activa‐
+A07994,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,897,"(F, N) Drive: motor data identification not performed"
+A08511,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,398,Receive configuration data not
+A08526,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,398,No cyclic connection • Activate the control with cyclic operation.
+A08564,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,899,PN/COMM BOARD: syntax error in the configuration file
+A08565,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,398,Consistency error affecting adjust‐
+A08700,alarm,Siemens_SINAMICS_G120C_List_Manual.pdf,315,(F) with alarm value = 2 present.
+A08751,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,900,(N) CAN: Telegram loss
+A08752,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,901,CAN: Error counter for error passive exceeded
+A08753,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,901,CAN: Message buffer overflow
+A08754,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,901,CAN: Incorrect communications mode
+A08755,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,901,CAN: Object cannot be mapped
+A08756,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,901,CAN: Number of mapped bytes exceeded
+A08757,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,902,CAN: Set COB-ID invalid
+A08759,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,902,CAN: PDO COB-ID already available
+A08760,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,902,CAN: maximum size of the IF PZD exceeded
+A08800,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,619,PROFIenergy states
+A12345,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,323,.
+A30015,alarm,Siemens_G120_Fieldbus_Function_Manual.pdf,239,")2) Motor phase loss (F30015, F07902)"
+A30016,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,907,(N) Power unit: Load supply switched off
+A30030,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,912,Power unit: Internal overtemperature alarm
+A30031,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,912,Power unit: Hardware current limiting in phase U
+A30032,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,912,Power unit: Hardware current limiting in phase V
+A30033,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,913,Power unit: Hardware current limiting in phase W
+A30034,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,913,Power unit: Internal overtemperature
+A30042,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,914,Power unit: Fan has reached the maximum operating hours
+A30049,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,915,Power unit: Internal fan faulty
+A30054,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,915,"(F, N) Power unit: Undervoltage when opening the brake"
+A30057,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,916,Power unit: Line asymmetry
+A30065,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,916,"(F, N) Voltage measured values not plausible"
+A30502,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,919,Power unit: DC link overvoltage
+A30600,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,666,... 30699
+A30666,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,486,"Note: The values ""static selected"" and ""static deselected"" result in an inactive function of the safe acknowledgment."
+A30693,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,926,"(F) SI P2: Safety parameter settings changed, POWER ON required"
+A30706,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,927,SI Motion P2: SAM/SBR limit exceeded
+A30711,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,928,SI Motion P2: Defect in a monitoring channel
+A30712,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,928,SI Motion P2: Defect in F-IO processing
+A30714,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,929,SI Motion P2: Safely-Limited Speed exceeded
+A30716,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,929,SI Motion P2: Tolerance for safe motion direction exceeded
+A30788,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,930,Automatic test stop: wait for STO deselection via SMM
+A30798,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,930,SI Motion P2: Test stop for motion monitoring functions running
+A30799,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,931,SI Motion P2: Acceptance test mode active
+A30810,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,932,(F) Power unit: Watchdog timer
+A30920,alarm,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,399,Temperature sensor fault Check that the sensor is connected correctly.
+A30999,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,933,"(F, N) Power unit: Unknown alarm"
+A50001,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,933,(F) PROFINET configuration error
+A50010,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,933,(F) PROFINET: Consistency error affecting adjustable parameters
+A50011,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,934,(F) Ethernet/IP: configuration error
+A50020,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,934,(F) PROFINET: Second controller missing
+A50513,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,934,(F) FBLOCKS: Run sequence value already assigned
+A50517,alarm,Siemens_G120_CU240BE2_List_Manual.pdf,935,FBLOCKS: Int. meas. active
+F01000,fault,Siemens_G120_CU240BE2_List_Manual.pdf,819,Internal software error
+F01001,fault,Siemens_G120_CU240BE2_List_Manual.pdf,819,FloatingPoint exception
+F01002,fault,Siemens_G120_CU240BE2_List_Manual.pdf,819,Internal software error
+F01003,fault,Siemens_G120_CU240BE2_List_Manual.pdf,820,Acknowledgment delay when accessing the memory
+F01005,fault,Siemens_G120_CU240BE2_List_Manual.pdf,820,File upload/download error
+F01010,fault,Siemens_G120_CU240BE2_List_Manual.pdf,821,Drive type unknown
+F01015,fault,Siemens_G120_CU240BE2_List_Manual.pdf,821,Internal software error
+F01018,fault,Siemens_G120_CU240BE2_List_Manual.pdf,822,Booting has been interrupted several times
+F01023,fault,Siemens_G120_CU240BE2_List_Manual.pdf,823,Software timeout (internal)
+F01030,fault,Siemens_G120_CU240BE2_List_Manual.pdf,823,Sign-of-life failure for master control
+F01033,fault,Siemens_G120_CU240BE2_List_Manual.pdf,823,Units changeover: Reference parameter value invalid
+F01034,fault,Siemens_G120_CU240BE2_List_Manual.pdf,824,Units changeover: Calculation parameter values after reference value change
+F01036,fault,Siemens_G120_CU240BE2_List_Manual.pdf,824,(A) ACX: Paramete r back-up file missing
+F01038,fault,Siemens_G120_CU240BE2_List_Manual.pdf,825,(A) ACX: Loading the parameter back-up file unsuccessful
+F01039,fault,Siemens_G120_CU240BE2_List_Manual.pdf,825,(A) ACX: Writing to the parameter back-up file was unsuccessful
+F01040,fault,Siemens_G120_CU240BE2_List_Manual.pdf,826,Save parameter settings and carry out a POWER ON
+F01042,fault,Siemens_G120_CU240BE2_List_Manual.pdf,826,Parameter error during project download
+F01043,fault,Siemens_G120_CU240BE2_List_Manual.pdf,827,Fatal error at project download
+F01044,fault,Siemens_G120_CU240BE2_List_Manual.pdf,828,CU: Descriptive data error
+F01054,fault,Siemens_G120_CU240BE2_List_Manual.pdf,828,CU: System limit exceeded
+F01068,fault,Siemens_G120_CU240BE2_List_Manual.pdf,829,CU: Data memory memory overflow
+F01072,fault,Siemens_G120_CU240BE2_List_Manual.pdf,830,Memory card restored from the backup copy
+F01105,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,394,CU: Insufficient memory Reduce number of data sets.
+F01107,fault,Siemens_G120_CU240BE2_List_Manual.pdf,831,Save to memory card unsuccessful
+F01112,fault,Siemens_G120_CU240BE2_List_Manual.pdf,831,CU: Power unit not permissible
+F01120,fault,Siemens_G120_CU240BE2_List_Manual.pdf,831,(A) Terminal initialization has failed
+F01122,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,394,Frequency at the probe input too
+F01152,fault,Siemens_G120_CU240BE2_List_Manual.pdf,832,CU: Invalid constellation of drive object types
+F01205,fault,Siemens_G120_CU240BE2_List_Manual.pdf,832,CU: Time slice overflow
+F01250,fault,Siemens_G120_CU240BE2_List_Manual.pdf,832,CU: CU-EEPROM incorrect read-only data
+F01257,fault,Siemens_G120_CU240BE2_List_Manual.pdf,832,CU: Firmware version out of date
+F01340,fault,Siemens_G120_CU240BE2_List_Manual.pdf,833,Topology: Too many components on one line
+F01505,fault,Siemens_G120_CU240BE2_List_Manual.pdf,834,(A) BICO: Interconnection cannot be established
+F01510,fault,Siemens_G120_CU240BE2_List_Manual.pdf,834,BICO: Signal source is not float type
+F01511,fault,Siemens_G120_CU240BE2_List_Manual.pdf,834,(A) BICO: Interconnection with different scalings
+F01512,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,394,An attempt has been made to es‐
+F01513,fault,Siemens_G120_CU240BE2_List_Manual.pdf,835,"(N, A) BICO: Interconnection cross DO with different scalings"
+F01515,fault,Siemens_G120_CU240BE2_List_Manual.pdf,835,(A) BICO: Writing to parameter not permitted as the master control is active
+F01600,fault,Siemens_G120_CU240BE2_List_Manual.pdf,836,SI P1 (CU): STOP A initiated
+F01611,fault,Siemens_G120_CU240BE2_List_Manual.pdf,471,.
+F01625,fault,Siemens_G120_CU240BE2_List_Manual.pdf,839,SI P1 (CU): Sign-of-life error in safety data
+F01640,fault,Siemens_G120_CU240BE2_List_Manual.pdf,839,SI P1 (CU): component replacement identified and acknowledgment/save required
+F01641,fault,Siemens_G120_CU240BE2_List_Manual.pdf,840,SI P1 (CU): component replacement identified and save required
+F01649,fault,Siemens_G120_CU240BE2_List_Manual.pdf,841,SI P1 (CU): Internal software error
+F01650,fault,Siemens_G120_CU240BE2_List_Manual.pdf,841,SI P1 (CU): Acceptance test required
+F01651,fault,Siemens_G120_CU240BE2_List_Manual.pdf,842,SI P1 (CU): Synchronization safety time slices unsuccessful
+F01653,fault,Siemens_G120_CU240BE2_List_Manual.pdf,842,SI P1 (CU): PROFIBUS/PROFINET configuration error
+F01655,fault,Siemens_G120_CU240BE2_List_Manual.pdf,843,SI P1 (CU): Align monitoring functions
+F01656,fault,Siemens_G120_CU240BE2_List_Manual.pdf,844,SI P1 (CU): Parameter processor 2 error
+F01658,fault,Siemens_G120_CU240BE2_List_Manual.pdf,844,SI P1 (CU): PROFIsafe telegram number not suitable
+F01659,fault,Siemens_G120_CU240BE2_List_Manual.pdf,844,SI P1 (CU): Write request for parameter rejected
+F01660,fault,Siemens_G120_CU240BE2_List_Manual.pdf,845,SI P1 (CU): Safety-related functions not supported
+F01661,fault,Siemens_G120_CU240BE2_List_Manual.pdf,846,SI P1 (CU): Simulation of the safety inputs active
+F01662,fault,Siemens_G120_CU240BE2_List_Manual.pdf,846,Error internal communications
+F01663,fault,Siemens_G120_CU240BE2_List_Manual.pdf,846,SI P1 (CU): Copying the SI parameters rejected
+F01665,fault,Siemens_G120_CU240BE2_List_Manual.pdf,846,SI P1 (CU): System is defective
+F01680,fault,Siemens_G120_CU240BE2_List_Manual.pdf,848,SI Motion P1 (CU): Checksum error safety monitoring functions
+F01681,fault,Siemens_G120_CU240BE2_List_Manual.pdf,848,SI Motion P1 (CU): Incorrect parameter value
+F01682,fault,Siemens_G120_CU240BE2_List_Manual.pdf,848,SI Motion P1 (CU): Monitoring function not supported
+F01683,fault,Siemens_G120_CU240BE2_List_Manual.pdf,849,SI Motion P1 (CU): SLS enable missing
+F01690,fault,Siemens_G120_CU240BE2_List_Manual.pdf,849,SI Motion: Data save problem for the NVRAM
+F01692,fault,Siemens_G120_CU240BE2_List_Manual.pdf,850,SI Motion P1 (CU): Parameter value not permitted for encoderless
+F01700,fault,Siemens_G120_CU240BE2_List_Manual.pdf,851,SI Motion P1 (CU): STOP A initiated
+F01701,fault,Siemens_G120_CU240BE2_List_Manual.pdf,852,SI Motion P1 (CU): STOP B initiated
+F01770,fault,Siemens_G120_CU240BE2_List_Manual.pdf,858,SI Motion P1 (CU): Discrepancy error of the failsafe inputs
+F01910,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,Fieldbus SS setpoint timeout The alarm is generated when p2040 ≠ 0 ms and one of the following causes is
+F01946,fault,Siemens_G120_CU240BE2_List_Manual.pdf,861,(A) PROFIBUS: Connection to the Publisher aborted
+F01951,fault,Siemens_G120_CU240BE2_List_Manual.pdf,862,CU SYNC: Synchronization application clock cycle missing
+F02080,fault,Siemens_G120_CU240BE2_List_Manual.pdf,864,Trace: Parameterization deleted due to unit changeover
+F02151,fault,Siemens_G120_CU240BE2_List_Manual.pdf,866,(A) OA: Internal software error
+F02152,fault,Siemens_G120_CU240BE2_List_Manual.pdf,866,(A) OA: Insufficient memory
+F03000,fault,Siemens_G120_CU240BE2_List_Manual.pdf,866,NVRAM fault on action
+F03001,fault,Siemens_G120_CU240BE2_List_Manual.pdf,867,NVRAM checksum incorrect
+F03505,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,395,"Analog input, wire break Check the connection to the signal source for interrupts."
+F06310,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,396,Supply voltage (p0210) incorrect‐
+F06922,fault,Siemens_G120_CU240BE2_List_Manual.pdf,869,Braking resistor phase failure
+F07011,fault,Siemens_G120_CU240BE2_List_Manual.pdf,870,Drive: Motor overtemperature
+F07016,fault,Siemens_G120_CU240BE2_List_Manual.pdf,871,Drive: Motor temperature sensor fault
+F07080,fault,Siemens_G120_CU240BE2_List_Manual.pdf,872,Drive: Incorrect control parameter
+F07082,fault,Siemens_G120_CU240BE2_List_Manual.pdf,872,Macro: Execution not possible
+F07083,fault,Siemens_G120_CU240BE2_List_Manual.pdf,873,Macro: ACX file not found
+F07084,fault,Siemens_G120_CU240BE2_List_Manual.pdf,873,Macro: Condition for WaitUntil not fulfilled
+F07086,fault,Siemens_G120_CU240BE2_List_Manual.pdf,873,Units changeover: Parameter limit violation due to reference value change
+F07088,fault,Siemens_G120_CU240BE2_List_Manual.pdf,873,Units changeover: Parameter limit violation due to units changeover
+F07220,fault,Siemens_G120_CU240BE2_List_Manual.pdf,142,"). If there is no control available,"
+F07300,fault,Siemens_G120_CU240BE2_List_Manual.pdf,144,is then also output if the contactor is
+F07320,fault,Siemens_G120_CU240BE2_List_Manual.pdf,875,Drive: Automatic restart interrupted
+F07330,fault,Siemens_G120_CU240BE2_List_Manual.pdf,875,Flying restart: Measured search current too low
+F07331,fault,Siemens_G120_CU240BE2_List_Manual.pdf,189,"Notice: The ""flying restart"" function must be used in cases where the motor may still be running (e.g. after a brief lin"
+F07332,fault,Siemens_G120_CU240BE2_List_Manual.pdf,876,Flying restart: maximum speed reduced
+F07401,fault,Siemens_G120_CU240BE2_List_Manual.pdf,202,"), so that the drive is not accelerated"
+F07404,fault,Siemens_G120_CU240BE2_List_Manual.pdf,877,Drive: DC link voltage monitoring Vdc_max
+F07405,fault,Siemens_G120_CU240BE2_List_Manual.pdf,205,"1: Buff. Vdc until undervolt., n<p1257 -> F07405, t>p1255 -> F07406"
+F07406,fault,Siemens_G120_CU240BE2_List_Manual.pdf,201,Notice: An excessively high value in p1245 can possibly negatively influence the normal operation of the drive.
+F07410,fault,Siemens_G120_CU240BE2_List_Manual.pdf,877,Drive: Current controller output limited
+F07411,fault,Siemens_G120_CU240BE2_List_Manual.pdf,878,Drive: Flux setpoint not reached when building up excitation
+F07426,fault,Siemens_G120_CU240BE2_List_Manual.pdf,781,"Depending on the setting of p2350 a different equation will be used to calculate the end values of p2274,"
+F07435,fault,Siemens_G120_CU240BE2_List_Manual.pdf,879,(N) Drive: Setting the ramp-function generator for sensorless vector control
+F07445,fault,Siemens_G120_CU240BE2_List_Manual.pdf,879,PID autotuning canceled
+F07754,fault,Siemens_G120_CU240BE2_List_Manual.pdf,880,Drive: Incorrect shutoff valve configuration
+F07800,fault,Siemens_G120_CU240BE2_List_Manual.pdf,880,Drive: No power unit present
+F07801,fault,Siemens_G120_CU240BE2_List_Manual.pdf,881,Drive: Motor overcurrent
+F07802,fault,Siemens_G120_CU240BE2_List_Manual.pdf,881,Drive: Infeed or power unit not ready
+F07806,fault,Siemens_G120_CU240BE2_List_Manual.pdf,882,Drive: Regenerative power limit exceeded (F3E)
+F07807,fault,Siemens_G120_CU240BE2_List_Manual.pdf,882,Drive: Short-circuit/ground fault detected
+F07810,fault,Siemens_G120_CU240BE2_List_Manual.pdf,882,Drive: Power unit EEPROM without rated data
+F07860,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,397,External fault 1 Remove the external causes for this fault.
+F07861,fault,Siemens_G120_CU240BE2_List_Manual.pdf,328,) effective Yes No 8060
+F07862,fault,Siemens_G120_CU240BE2_List_Manual.pdf,328,) effective Yes No 8060
+F07894,fault,Siemens_G120_CU240BE2_List_Manual.pdf,884,Drive: Load monitoring pump/fan blocked
+F07895,fault,Siemens_G120_CU240BE2_List_Manual.pdf,885,Drive: Load monitoring pump/fan no load condition
+F07896,fault,Siemens_G120_CU240BE2_List_Manual.pdf,885,Drive: Load monitoring pump leakage
+F07900,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,397,Motor blocked • Make sure that the motor can rotate freely.
+F07901,fault,Siemens_G120_CU240BE2_List_Manual.pdf,885,Drive: Motor overspeed
+F07902,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,397,Motor stalled Check whether the motor data has been parameterized correctly and perform
+F07923,fault,Siemens_G120_CU240BE2_List_Manual.pdf,888,Drive: Torque/speed too low
+F07924,fault,Siemens_G120_CU240BE2_List_Manual.pdf,888,Drive: Torque/speed too high
+F07925,fault,Siemens_G120_CU240BE2_List_Manual.pdf,888,Drive: Torque/speed out of tolerance
+F07936,fault,Siemens_G120_CU240BE2_List_Manual.pdf,788,Drive: Load loss
+F07950,fault,Siemens_G120_CU240BE2_List_Manual.pdf,889,(A) Motor parameter incorrect
+F07963,fault,Siemens_G120_CU240BE2_List_Manual.pdf,890,Drive: Friction characteristic record interrupted
+F07967,fault,Siemens_G120_CU240BE2_List_Manual.pdf,891,Drive: Incorrect pole position identification
+F07968,fault,Siemens_G120_CU240BE2_List_Manual.pdf,892,Drive: Lq-Ld measurement incorrect
+F07969,fault,Siemens_G120_CU240BE2_List_Manual.pdf,892,Drive: Incorrect pole position identification
+F07970,fault,Siemens_G120_CU240BE2_List_Manual.pdf,292,fault value 2).
+F07983,fault,Siemens_G120_CU240BE2_List_Manual.pdf,894,Drive: Rotating measurement saturation characteristic
+F07984,fault,Siemens_G120_CU240BE2_List_Manual.pdf,894,"Drive: Speed controller optimization, moment of inertia"
+F07985,fault,Siemens_G120_CU240BE2_List_Manual.pdf,895,Drive: Speed controller optimization (oscillation test)
+F07986,fault,Siemens_G120_CU240BE2_List_Manual.pdf,896,Drive: Rotating measurement ramp-function generator
+F07988,fault,Siemens_G120_CU240BE2_List_Manual.pdf,896,"Drive: Rotating measurement, no configuration selected"
+F07990,fault,Siemens_G120_CU240BE2_List_Manual.pdf,896,Drive: Incorrect motor data identification
+F08010,fault,Siemens_G120_CU240BE2_List_Manual.pdf,898,"(N, A) CU: Analog-to-digital converter"
+F08501,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,398,Setpoint timeout • Check the PROFINET connection.
+F08502,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,398,"Monitoring time, sign-of-life ex‐"
+F08510,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,398,Send configuration data not valid • Check the PROFINET configuration
+F08700,fault,Siemens_G120_CU240BE2_List_Manual.pdf,899,(A) CAN: Communications error
+F08701,fault,Siemens_G120_CU240BE2_List_Manual.pdf,900,CAN: NMT state change
+F08702,fault,Siemens_G120_CU240BE2_List_Manual.pdf,900,(A) CAN: RPDO Timeout
+F08799,fault,Siemens_G120_Fieldbus_Function_Manual.pdf,224,"8110 hex CAN overflow, mes-"
+F12345,fault,Siemens_G120_CU240BE2_List_Manual.pdf,319,"and fault response = NONE (OFF1, OFF2)"
+F13009,fault,Siemens_G120_CU240BE2_List_Manual.pdf,903,Licensing OA application not licensed
+F13100,fault,Siemens_G120_CU240BE2_List_Manual.pdf,903,Know-how protection: Copy protection error
+F13101,fault,Siemens_G120_CU240BE2_List_Manual.pdf,903,Know-how protection: Copy protection cannot be activated
+F13102,fault,Siemens_G120_CU240BE2_List_Manual.pdf,903,Know-how protection: Consistency error of the protected data
+F30001,fault,Siemens_G120_CU240BE2_List_Manual.pdf,904,Power unit: Overcurrent
+F30002,fault,Siemens_G120_CU240BE2_List_Manual.pdf,904,Power unit: DC link voltage overvoltage
+F30003,fault,Siemens_G120_CU240BE2_List_Manual.pdf,905,Power unit: DC link voltage undervoltage
+F30004,fault,Siemens_G120_CU240BE2_List_Manual.pdf,905,Power unit: Overtemperature heat sink AC inverter
+F30005,fault,Siemens_G120_CU240BE2_List_Manual.pdf,906,Power unit: Overload I2t
+F30011,fault,Siemens_G120_CU240BE2_List_Manual.pdf,906,Power unit: Line phase failure in main circuit
+F30012,fault,Siemens_G120_CU240BE2_List_Manual.pdf,906,Power unit: Temperature sensor heat sink wire breakage
+F30013,fault,Siemens_G120_CU240BE2_List_Manual.pdf,907,Power unit: Temperature sensor heat sink short-circuit
+F30015,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,399,Motor cable phase failure Check the motor cables.
+F30017,fault,Siemens_G120_CU240BE2_List_Manual.pdf,907,Power unit: Hardware current limit has responded too often
+F30021,fault,Siemens_G120_CU240BE2_List_Manual.pdf,908,Power unit: Ground fault
+F30022,fault,Siemens_G120_CU240BE2_List_Manual.pdf,908,Power unit: Monitoring U_ce
+F30024,fault,Siemens_G120_CU240BE2_List_Manual.pdf,909,Power unit: Overtemperature thermal model
+F30025,fault,Siemens_G120_CU240BE2_List_Manual.pdf,909,Power unit: Chip overtemperature
+F30027,fault,Siemens_G120_CU240BE2_List_Manual.pdf,910,Power unit: Precharging DC link time monitoring
+F30035,fault,Siemens_G120_CU240BE2_List_Manual.pdf,913,Power unit: Air intake overtemperature
+F30036,fault,Siemens_G120_CU240BE2_List_Manual.pdf,914,Power unit: Internal overtemperature
+F30037,fault,Siemens_G120_CU240BE2_List_Manual.pdf,914,Power unit: Rectifier overtemperature
+F30051,fault,Siemens_G120_CU240BE2_List_Manual.pdf,915,Power unit: Motor holding brake short circuit detected
+F30052,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,399,Incorrect Power Module data Replace the converter or upgrade the converter firmware.
+F30053,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,399,Error in FPGA data Replace the converter.
+F30055,fault,Siemens_G120_CU240BE2_List_Manual.pdf,916,Power unit: Braking chopper overcurrent
+F30059,fault,Siemens_G120_CU240BE2_List_Manual.pdf,916,Power unit: Internal fan faulty
+F30068,fault,Siemens_G120_CU240BE2_List_Manual.pdf,916,Power unit: undertemperature inverter heat sink
+F30071,fault,Siemens_G120_CU240BE2_List_Manual.pdf,917,No new actual values received from the Power Module
+F30072,fault,Siemens_G120_CU240BE2_List_Manual.pdf,917,Setpoints can no longer be transferred to the Power Module
+F30074,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,399,Communications error between
+F30075,fault,Siemens_G120_CU240BE2_List_Manual.pdf,917,Configuration of the power unit unsuccessful
+F30080,fault,Siemens_G120_CU240BE2_List_Manual.pdf,918,Power unit: Current increasing too quickly
+F30081,fault,Siemens_G120_CU240BE2_List_Manual.pdf,918,Power unit: Switching operations too frequent
+F30105,fault,Siemens_G120_CU240BE2_List_Manual.pdf,918,PU: Actual value sensing fault
+F30600,fault,Siemens_G120_CU240BE2_List_Manual.pdf,919,SI P2: STOP A initiated
+F30611,fault,Siemens_G120_CU240BE2_List_Manual.pdf,666,≥1
+F30625,fault,Siemens_G120_CU240BE2_List_Manual.pdf,921,SI P2: Sign-of-life error in safety data
+F30649,fault,Siemens_G120_CU240BE2_List_Manual.pdf,921,SI P2: Internal software error
+F30650,fault,Siemens_G120_CU240BE2_List_Manual.pdf,921,SI P2: Acceptance test required
+F30651,fault,Siemens_G120_CU240BE2_List_Manual.pdf,922,SI P2: Synchronization with Control Unit unsuccessful
+F30655,fault,Siemens_G120_CU240BE2_List_Manual.pdf,922,SI P2: Align monitoring functions
+F30656,fault,Siemens_G120_CU240BE2_List_Manual.pdf,923,SI P2: Parameter processor 2 parameter error
+F30659,fault,Siemens_G120_CU240BE2_List_Manual.pdf,923,SI P2: Write request for parameter rejected
+F30662,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,399,"CU hardware fault Switch off the converter and switch on again, upgrade the firmware or contact"
+F30664,fault,Siemens_SINAMICS_G120C_Operating_Instructions.pdf,399,"CU power up aborted Switch off the converter and switch on again, upgrade the firmware or contact"
+F30665,fault,Siemens_G120_CU240BE2_List_Manual.pdf,924,SI P2: System is defective
+F30680,fault,Siemens_G120_CU240BE2_List_Manual.pdf,925,SI Motion P2: Checksum error safety monitoring functions
+F30681,fault,Siemens_G120_CU240BE2_List_Manual.pdf,925,SI Motion P2: Incorrect parameter value
+F30682,fault,Siemens_G120_CU240BE2_List_Manual.pdf,925,SI Motion P2: Monitoring function not supported
+F30683,fault,Siemens_G120_CU240BE2_List_Manual.pdf,926,SI Motion P2: SLS enable missing
+F30692,fault,Siemens_G120_CU240BE2_List_Manual.pdf,926,SI Motion P2: Parameter value not permitted for encoderless
+F30700,fault,Siemens_G120_CU240BE2_List_Manual.pdf,927,SI Motion P2: STOP A initiated
+F30701,fault,Siemens_G120_CU240BE2_List_Manual.pdf,927,SI Motion P2: STOP B initiated
+F30770,fault,Siemens_G120_CU240BE2_List_Manual.pdf,929,SI Motion P2: Discrepancy error affecting the failsafe inputs
+F30802,fault,Siemens_G120_CU240BE2_List_Manual.pdf,931,Power unit: Time slice overflow
+F30804,fault,Siemens_G120_CU240BE2_List_Manual.pdf,931,"(N, A) Power unit: CRC"
+F30805,fault,Siemens_G120_CU240BE2_List_Manual.pdf,931,Power unit: EEPROM checksum error
+F30809,fault,Siemens_G120_CU240BE2_List_Manual.pdf,931,Power unit: Switching information not valid
+F30850,fault,Siemens_G120_CU240BE2_List_Manual.pdf,932,Power unit: Internal software error
+F30903,fault,Siemens_G120_CU240BE2_List_Manual.pdf,932,Power unit: I2C bus error occurred
+F30950,fault,Siemens_G120_CU240BE2_List_Manual.pdf,932,Power unit: Internal software error
+F35950,fault,Siemens_G120_CU240BE2_List_Manual.pdf,933,TM: Internal software error
+F50510,fault,Siemens_G120_CU240BE2_List_Manual.pdf,934,FBLOCKS: Logon of the runtime group rejected
+F50511,fault,Siemens_G120_CU240BE2_List_Manual.pdf,934,FBLOCKS: Memory no longer available for free function blocks
+F50518,fault,Siemens_G120_CU240BE2_List_Manual.pdf,935,FBLOCKS: Sampling time of free runtime group differs at download

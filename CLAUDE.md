@@ -20,6 +20,49 @@ the 3-page project document — see `dificuldades_e_oportunidades.md`. The histo
 (2026-08-18 through 2026-08-19) is kept for context on how earlier milestones were
 built; don't re-derive it from scratch.
 
+## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
+
+Non-obvious things worth keeping; the full write-up with numbers is in
+`dificuldades_e_oportunidades.md` #1 and README's 2026-08-25 note.
+
+- **Chroma already does exact substring search — nobody had noticed.** `chromadb 1.5.9` +
+  `langchain-chroma 1.1.0` accept `where_document={"$contains": "F30021"}`, it combines with the
+  existing metadata `filter`, and `as_retriever(search_kwargs=...)` forwards it verbatim. The
+  local FTS index is `tokenize='trigram'`, i.e. real substring matching with no tokenisation
+  trap. So the whole fix needed **no new dependency, no BM25, no re-indexing** — the long-planned
+  "hybrid retrieval" turned out to be one already-present feature. Check what the installed
+  stack does before reaching for a library.
+- **`vectorstore._collection.get(where_document=..., where=...)` is a pure lexical lookup** with
+  no embedding call at all. That is what `fault_codes.lookup_code()` uses — embedding a query
+  whose whole point is exactness would be both wasted work and self-defeating.
+- **Literal matching alone is not enough**, and this is the trap the 2026-08-18-d audit already
+  hit once: most occurrences of a code are cross-references from other pages. `F30021` matches 8
+  chunks, and the *first* is "See also: F30021 Note: ..." on p.62; the definition is on p.908.
+  `F07011` matches **53** chunks. `score_occurrence()` reproduces the old best-match-per-code
+  rule (penalise `See also:`/`Note:` before, and code-lists after; reward a `Power unit:`/`Drive:`
+  prefix). Verified: picks the definition 8/8, and drives the definition-page metric from 18% to
+  100%.
+- **Exact hits must bypass the reranker.** They are pinned ahead of the semantic results and never
+  passed to `rerank_documents()` — an LLM reordering them can bury the one chunk that defines the
+  code, which is the entire point of the lookup.
+- **When a code is unknown AND the query has nothing else, suppress the semantic results
+  entirely** (`CodeAwareRetriever._has_searchable_text`). Otherwise the UI shows four real manual
+  pages as "Sources retrieved" underneath an answer that correctly says the code is undocumented
+  — the exact misleading pairing this change exists to remove. If the operator *did* describe a
+  symptom too, the semantic results still come through.
+- **`difflib` is the wrong tool for these typos.** `F3OO21` vs `F30021` scores below any usable
+  cutoff (measured: no match even at 0.75) because O and 0 are unrelated characters to it. What
+  works is normalising the actual display confusions (O↔0, I↔1, S↔5, B↔8, Q, L, Z) and then
+  testing exact membership. The loose pattern used to *find* a malformed code requires ≥3 real
+  digits, otherwise ordinary words like `FOSSIL` and `BOBBIN` match `[FA][0-9OQILSBZ]{5}`.
+- **A typo is not an unknown code.** Suggestion is surfaced to the operator as a question with two
+  buttons, never auto-applied and never fed to the LLM — answering about a code the operator
+  never asked about is exactly the failure being prevented. Owner-confirmed decision: for a
+  genuinely unknown code, refuse cleanly and do **not** list similar codes.
+- `fault_codes.csv` holds **368** codes (206 F / 162 A) — more than the 335 of the 2026-08-18-d
+  audit, because that one scanned only the two List Manuals while `build_fault_code_index.py`
+  scans every chunk in the store.
+
 ## 2026-08-24 — Git repository confirmed real (was wrongly listed as an open gap)
 
 A fresh analysis pass found this repo already has a real `origin` remote

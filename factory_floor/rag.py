@@ -1,9 +1,13 @@
+import re
 from uuid import uuid4
 
+from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langsmith import traceable
+
+from factory_floor.fault_codes import extract_codes, lookup_code
 
 LLM_MODEL = "gpt-4.1-mini"
 MAX_HISTORY_TURNS = 4
@@ -123,14 +127,107 @@ class RerankingRetriever:
         return rerank_documents(query, candidates, llm=self.llm, top_n=self.top_n)
 
 
-def build_retriever(vectorstore, k=5, equipment_type=None, rerank=False, rerank_llm=None, fetch_k=None):
+CODE_NOT_FOUND_NOTICE = (
+    "NOT FOUND: fault code {code} does not appear anywhere in the ingested manuals. "
+    "Do not describe this code, and do not infer what it might mean from similar-looking "
+    "codes. State plainly that it is not documented in the available manuals and ask the "
+    "operator to re-check the code on the equipment display."
+)
+
+
+class CodeAwareRetriever:
+    """Routes queries containing a fault code (F30021, A30015, ...) through an exact
+    lexical lookup, and everything else through the normal semantic path untouched.
+
+    Duck-types .invoke(query) like RerankingRetriever, which is all agent.py's
+    search_manuals tool consumes.
+
+    Two properties matter more than the retrieval itself:
+      * exact hits are PINNED at the top and never handed to the reranker — an LLM
+        reordering them could bury the one chunk that actually defines the code;
+      * a code that yields zero literal hits produces an explicit not-found Document
+        rather than silently falling back to semantic neighbours. That fallback is the
+        dangerous case: it returns real manual text about a *different* fault, which
+        reads as a well-cited answer to the wrong question."""
+
+    def __init__(self, vectorstore, semantic_retriever, k, equipment_type=None):
+        self.vectorstore = vectorstore
+        self.semantic_retriever = semantic_retriever
+        self.k = k
+        self.equipment_type = equipment_type
+
+    @staticmethod
+    def _has_searchable_text(query, codes, min_words=3):
+        """Is there anything worth a semantic search once the codes are removed? 'F99999'
+        alone is not; 'F99999, motor overheating and tripping' is."""
+        stripped = query
+        for code in codes:
+            stripped = re.sub(re.escape(code), " ", stripped, flags=re.IGNORECASE)
+        return len([w for w in re.findall(r"[A-Za-z]{3,}", stripped)]) >= min_words
+
+    def invoke(self, query):
+        codes = extract_codes(query)
+        if not codes:
+            return self.semantic_retriever.invoke(query)
+
+        pinned = []
+        seen = set()
+        found_any = False
+        for code in codes:
+            hits = lookup_code(self.vectorstore, code, equipment_type=self.equipment_type)
+            if not hits:
+                pinned.append(
+                    Document(
+                        page_content=CODE_NOT_FOUND_NOTICE.format(code=code),
+                        metadata={
+                            "source_file": "(not in corpus)",
+                            "page": -1,
+                            "fault_code": code,
+                            "not_found": True,
+                        },
+                    )
+                )
+                continue
+            found_any = True
+            for doc in hits[:2]:  # the definition, plus its runner-up for cause/remedy text
+                key = (doc.metadata.get("source_file"), doc.metadata.get("page"))
+                if key not in seen:
+                    seen.add(key)
+                    pinned.append(doc)
+
+        # Nothing found, and the operator gave nothing to search on besides the code: do
+        # NOT pad the result with semantic neighbours. They would be real manual pages
+        # about unrelated faults, shown to the operator as "sources" underneath an answer
+        # that correctly says the code is undocumented — the exact misleading pairing
+        # this whole change exists to remove.
+        if not found_any and not self._has_searchable_text(query, codes):
+            return pinned
+
+        remaining = self.k - len(pinned)
+        if remaining <= 0:
+            return pinned[: self.k]
+
+        # Semantic results still add value (plain-language versions in the Operating
+        # Instructions, related symptoms), they just must not outrank the definition.
+        semantic = [
+            doc
+            for doc in self.semantic_retriever.invoke(query)
+            if (doc.metadata.get("source_file"), doc.metadata.get("page")) not in seen
+        ]
+        return pinned + semantic[:remaining]
+
+
+def build_retriever(vectorstore, k=5, equipment_type=None, rerank=False, rerank_llm=None,
+                    fetch_k=None, code_aware=False):
     fetch_k = fetch_k or max(k * 3, 12)
     kwargs = {"k": fetch_k if rerank else k}
     if equipment_type:
         kwargs["filter"] = {"equipment_type": equipment_type}
     base = vectorstore.as_retriever(search_kwargs=kwargs)
     if rerank:
-        return RerankingRetriever(base, rerank_llm or get_llm(), top_n=k)
+        base = RerankingRetriever(base, rerank_llm or get_llm(), top_n=k)
+    if code_aware:
+        return CodeAwareRetriever(vectorstore, base, k=k, equipment_type=equipment_type)
     return base
 
 
