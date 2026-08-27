@@ -94,10 +94,10 @@ class Settings:
     collection_name: str = COLLECTION_NAME
     langsmith_project: str | None = None
 
-    # Cost control (phase 3) — off unless a cap is set
+    # Cost control (phase 3) — off unless a cap is set. The per-turn ledger lives in the
+    # audit SQLite db (cost_events table) since phase 5, so there is no separate path.
     daily_spend_cap_usd: float | None = None
     cost_alert_threshold: float = 0.8
-    cost_ledger_path: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "cost_ledger.jsonl")
 
     # Safety gate (phase 4)
     safety_gate_mode: str = "rewrite"          # off | rewrite | block
@@ -112,6 +112,7 @@ class Settings:
     audit_enabled: bool = True
     require_login: bool = False
     audit_db_path: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "audit.sqlite3")
+    cmms_outbox_path: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "cmms_outbox.jsonl")
 
     # Multi-tenant (phase 7) — single tenant until a deployment needs otherwise
     tenant_id: str = "default"
@@ -130,9 +131,6 @@ class Settings:
             langsmith_project=_env_str("FACTORY_FLOOR_LANGSMITH_PROJECT", None),
             daily_spend_cap_usd=_env_opt_float("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", None),
             cost_alert_threshold=_env_float("FACTORY_FLOOR_COST_ALERT_THRESHOLD", 0.8),
-            cost_ledger_path=Path(
-                _env_str("FACTORY_FLOOR_COST_LEDGER_PATH", str(PROJECT_ROOT / "data" / "cost_ledger.jsonl"))
-            ),
             safety_gate_mode=_env_str("FACTORY_FLOOR_SAFETY_GATE_MODE", "rewrite"),
             safety_gate_on_stream=_env_str("FACTORY_FLOOR_SAFETY_GATE_ON_STREAM", "buffer"),
             semantic_cache_enabled=_env_bool("FACTORY_FLOOR_SEMANTIC_CACHE_ENABLED", False),
@@ -144,6 +142,9 @@ class Settings:
             require_login=_env_bool("FACTORY_FLOOR_REQUIRE_LOGIN", False),
             audit_db_path=Path(
                 _env_str("FACTORY_FLOOR_AUDIT_DB_PATH", str(PROJECT_ROOT / "data" / "audit.sqlite3"))
+            ),
+            cmms_outbox_path=Path(
+                _env_str("FACTORY_FLOOR_CMMS_OUTBOX_PATH", str(PROJECT_ROOT / "data" / "cmms_outbox.jsonl"))
             ),
             tenant_id=_env_str("FACTORY_FLOOR_TENANT_ID", "default"),
             secrets_backend=_env_str("FACTORY_FLOOR_SECRETS_BACKEND", "env"),

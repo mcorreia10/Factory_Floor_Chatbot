@@ -15,6 +15,7 @@ import io
 from dataclasses import dataclass, field
 from typing import Any
 
+from factory_floor import audit
 from factory_floor.agent import run_diagnostic_agent, stream_diagnostic_agent
 from factory_floor.config import get_settings
 from factory_floor.cost import (
@@ -150,7 +151,7 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
     settings = get_settings()
     accumulator = UsageAccumulator()
     callback = CostTrackingCallback(accumulator, default_model=settings.llm_model)
-    ledger = DailyLedger(settings.cost_ledger_path)
+    ledger = DailyLedger()  # -> the audit SQLite cost_events table (phase 5)
 
     if settings.daily_spend_cap_usd is not None:
         try:
@@ -179,7 +180,10 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
 
     def _finalize(result: DiagnosticResult) -> None:
         result.cost = accumulator.as_dict()
-        if accumulator.n_calls:
+        if settings.audit_enabled:
+            # record_recommendation also writes the linked cost_events row.
+            result.audit_id = audit.record_recommendation(result, req)
+        elif accumulator.n_calls:
             ledger.record(tenant_id=req.tenant_id, usage=accumulator)
 
     if stream:
@@ -260,6 +264,7 @@ def assemble_turn(result: DiagnosticResult, *, image_bytes: bytes | None,
         "sources": result.sources,
         "tool_trace": result.tool_trace,
         "safety": result.safety,
+        "audit_id": result.audit_id,
         "image_bytes": image_bytes,
         "vision_context": vision_context,
         "predicted_label": classification["predicted_label"] if classification else None,

@@ -1,23 +1,34 @@
 """LLM cost tracking (phase 3).
 
 Every LLM call in the project already funnels through ``rag.get_llm()``. This module
-adds a callback that meters token usage on each call, a per-session accumulator, a
-tiny append-only daily ledger, and a pre-flight daily spend cap.
+adds a callback that meters token usage on each call, a per-session accumulator, and a
+pre-flight daily spend cap. The daily ledger itself lives in ``factory_floor.audit``
+(``cost_events`` table) since phase 5 — ``DailyLedger`` is re-exported here so existing
+imports keep working.
 
 Nothing here is on by default: with no ``FACTORY_FLOOR_DAILY_SPEND_CAP_USD`` set, the
 cap check is a no-op and the only effect is that ``DiagnosticResult.cost`` and the
 sidebar cost line get populated.
 """
 
-import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
 
 from langchain_core.callbacks import BaseCallbackHandler
 
-from factory_floor.config import PROJECT_ROOT
+from factory_floor.audit import DailyLedger  # re-export (phase 5): the ledger is SQLite now
+
+__all__ = [
+    "MODEL_PRICING",
+    "PENDING_TURN_ESTIMATE_USD",
+    "SpendCapExceeded",
+    "count_tokens",
+    "estimate_cost",
+    "UsageAccumulator",
+    "CostTrackingCallback",
+    "DailyLedger",
+    "check_spend_cap",
+]
 
 logger = logging.getLogger("factory_floor.cost")
 
@@ -188,51 +199,7 @@ class CostTrackingCallback(BaseCallbackHandler):
         self.accumulator.add(input_tokens, output_tokens, model)
 
 
-# --- daily ledger + cap --------------------------------------------------------
-
-def _today_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-class DailyLedger:
-    """Append-only JSONL of per-turn cost, one row per diagnostic turn. Phase 5 folds
-    this into the audit SQLite DB with the same ``today_total`` / ``record`` API."""
-
-    def __init__(self, path: str | Path | None = None):
-        self.path = Path(path) if path else (PROJECT_ROOT / "data" / "cost_ledger.jsonl")
-
-    def record(self, *, tenant_id: str, usage: UsageAccumulator) -> None:
-        row = {
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "date": _today_utc(),
-            "tenant_id": tenant_id,
-            "usd": round(usage.total_usd, 6),
-            "input_tokens": usage.total_input_tokens,
-            "output_tokens": usage.total_output_tokens,
-            "n_calls": usage.n_calls,
-        }
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row) + "\n")
-
-    def today_total(self, tenant_id: str = "default") -> float:
-        if not self.path.exists():
-            return 0.0
-        today = _today_utc()
-        total = 0.0
-        with self.path.open(encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if row.get("date") == today and row.get("tenant_id", "default") == tenant_id:
-                    total += row.get("usd", 0.0) or 0.0
-        return total
-
+# --- spend cap ---------------------------------------------------------------------
 
 def _default_alert(daily_total_usd: float, cap: float) -> None:
     logger.warning(

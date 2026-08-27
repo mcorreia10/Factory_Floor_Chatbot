@@ -1,13 +1,15 @@
-"""Phase 3: cost metering + spend cap through services.run_diagnostic, end to end
-against the real create_agent graph with a fake model — no API key, no cost.
+"""Phase 3 (+ phase 5 storage): cost metering + spend cap through
+services.run_diagnostic, end to end against the real create_agent graph with a fake
+model. The cost ledger is the SQLite ``cost_events`` table now; the audit db path is
+pointed at tmp_path by the conftest isolation fixture.
 """
 
-import json
+from types import SimpleNamespace
 
 import pytest
 from freezegun import freeze_time
 
-from factory_floor import services
+from factory_floor import audit, services
 
 pytestmark = pytest.mark.integration
 
@@ -21,37 +23,35 @@ def _request():
     )
 
 
-def test_a_turn_writes_a_ledger_row_and_populates_result_cost(
-    tmp_path, monkeypatch, tmp_vectorstore, make_agent_fake_llm
-):
-    ledger_path = tmp_path / "cost_ledger.jsonl"
-    monkeypatch.setenv("FACTORY_FLOOR_COST_LEDGER_PATH", str(ledger_path))
-    # no cap -> nothing is blocked, but cost is still tracked
+def _seed_spend(usd):
+    audit.DailyLedger().record(
+        tenant_id="default",
+        usage=SimpleNamespace(total_usd=usd, total_input_tokens=0, total_output_tokens=0, n_calls=1),
+    )
 
+
+def test_a_turn_records_cost_and_an_audit_row(tmp_vectorstore, make_agent_fake_llm):
     result = services.run_diagnostic(
         _request(), vectorstore=tmp_vectorstore, llm=make_agent_fake_llm("Ground fault.")
     )
 
     assert result.blocked is False
-    assert result.cost is not None
-    assert result.cost["n_calls"] >= 1  # the agent's model call registered (fallback counting)
-    assert ledger_path.exists()
-    rows = [json.loads(line) for line in ledger_path.read_text().splitlines() if line.strip()]
-    assert len(rows) == 1
-    assert rows[0]["tenant_id"] == "default"
-    assert rows[0]["n_calls"] >= 1
+    assert result.cost is not None and result.cost["n_calls"] >= 1
+    assert result.audit_id is not None  # audit_enabled is the default
+
+    trail = audit.get_audit_trail(machine_id="GENERAL")
+    assert len(trail) == 1
+    assert trail[0]["id"] == result.audit_id
+    assert trail[0]["safety_action"] == "pass"
+    # the linked cost_events row feeds the daily total
+    assert audit.DailyLedger().today_total("default") > 0
 
 
-def test_spend_cap_blocks_before_the_agent_runs(tmp_path, monkeypatch, tmp_vectorstore, make_agent_fake_llm):
-    ledger_path = tmp_path / "cost_ledger.jsonl"
-    # Pre-seed today's ledger with spend already over the cap.
+def test_spend_cap_blocks_before_the_agent_runs(monkeypatch, tmp_vectorstore, make_agent_fake_llm):
+    # setenv before anything reads settings, so get_settings() caches with the cap set.
+    monkeypatch.setenv("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", "10.00")
     with freeze_time("2026-08-27 09:00:00"):
-        ledger_path.write_text(
-            json.dumps({"date": "2026-08-27", "tenant_id": "default", "usd": 9.99}) + "\n"
-        )
-        monkeypatch.setenv("FACTORY_FLOOR_COST_LEDGER_PATH", str(ledger_path))
-        monkeypatch.setenv("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", "10.00")
-
+        _seed_spend(9.99)
         result = services.run_diagnostic(
             _request(), vectorstore=tmp_vectorstore, llm=make_agent_fake_llm("should not be reached")
         )
@@ -62,16 +62,11 @@ def test_spend_cap_blocks_before_the_agent_runs(tmp_path, monkeypatch, tmp_vecto
 
 
 def test_spend_cap_block_in_streaming_mode_returns_empty_generator(
-    tmp_path, monkeypatch, tmp_vectorstore, make_agent_fake_llm
+    monkeypatch, tmp_vectorstore, make_agent_fake_llm
 ):
-    ledger_path = tmp_path / "cost_ledger.jsonl"
+    monkeypatch.setenv("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", "10.00")
     with freeze_time("2026-08-27 09:00:00"):
-        ledger_path.write_text(
-            json.dumps({"date": "2026-08-27", "tenant_id": "default", "usd": 50.0}) + "\n"
-        )
-        monkeypatch.setenv("FACTORY_FLOOR_COST_LEDGER_PATH", str(ledger_path))
-        monkeypatch.setenv("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", "10.00")
-
+        _seed_spend(50.0)
         generator, result = services.run_diagnostic(
             _request(), vectorstore=tmp_vectorstore, llm=make_agent_fake_llm("x"), stream=True
         )
@@ -80,13 +75,11 @@ def test_spend_cap_block_in_streaming_mode_returns_empty_generator(
     assert list(generator) == []
 
 
-def test_streaming_turn_finalizes_cost_only_after_consumption(
-    tmp_path, monkeypatch, tmp_vectorstore, make_agent_fake_llm
-):
-    monkeypatch.setenv("FACTORY_FLOOR_COST_LEDGER_PATH", str(tmp_path / "cost_ledger.jsonl"))
+def test_streaming_turn_finalizes_cost_only_after_consumption(tmp_vectorstore, make_agent_fake_llm):
     generator, result = services.run_diagnostic(
         _request(), vectorstore=tmp_vectorstore, llm=make_agent_fake_llm("Ground fault."), stream=True
     )
     assert result.cost is None
     list(generator)
     assert result.cost is not None and result.cost["n_calls"] >= 1
+    assert result.audit_id is not None

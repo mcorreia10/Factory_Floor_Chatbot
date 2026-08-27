@@ -126,6 +126,7 @@ class TestAssembleTurn:
             "sources": "- ListManual.pdf — page 908",
             "tool_trace": [{"tool": "search_manuals", "input": {}}],
             "safety": {"action": "pass", "reason": "no physical action instructed"},
+            "audit_id": None,
             "image_bytes": None,
             "vision_context": None,
             "predicted_label": None,

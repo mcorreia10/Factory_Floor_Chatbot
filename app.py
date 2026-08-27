@@ -4,10 +4,10 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-from factory_floor import services
+from factory_floor import audit, identity, services
 from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR, get_settings
 from factory_floor.cost import DailyLedger, UsageAccumulator
-from factory_floor.machines import get_machine_history, load_machines
+from factory_floor.machines import append_resolution_event, get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
 from factory_floor.rag import get_llm
 from factory_floor.secrets import get_secret
@@ -52,6 +52,25 @@ if not api_key:
     st.error("OPENAI_API_KEY is missing. Add it to a .env file before launching the app.")
     st.stop()
 
+# Optional operator sign-in (phase 5). Off by default — set FACTORY_FLOOR_REQUIRE_LOGIN=true
+# to require it. On a real shop floor this is a badge scan / PIN pad / MES SSO, not a form.
+if get_settings().require_login and "operator" not in st.session_state:
+    st.title("🏭 The Factory Floor")
+    st.subheader("Operator sign-in")
+    with st.form("operator_login"):
+        _op_id = st.text_input("Operator ID", placeholder="e.g. OP-1001")
+        _pin = st.text_input("PIN", type="password")
+        if st.form_submit_button("Sign in", type="primary"):
+            _operator = identity.authenticate(_op_id.strip(), _pin)
+            if _operator:
+                st.session_state["operator"] = _operator.as_dict()
+                st.rerun()
+            else:
+                st.error("Unknown operator ID or wrong PIN.")
+    st.stop()
+
+operator = st.session_state.get("operator") or {}
+
 if not VECTOR_DIR.exists() or not any(VECTOR_DIR.iterdir()):
     st.error(
         "Vector database not found. Run notebooks/01_data_ingestion.ipynb and "
@@ -81,7 +100,15 @@ machines = load_machines()
 machine_labels = {"🌐 General question (search all manuals)": GENERAL_MACHINE}
 machine_labels.update({f"{m['machine_id']} — {m['family']} ({m['location']})": m for m in machines})
 
+_tenant_id = operator.get("tenant_id", get_settings().tenant_id)
+
 with st.sidebar:
+    if operator:
+        st.caption(f"👤 {operator['name']} ({operator['operator_id']} · {operator['role']})")
+        if st.button("Sign out", use_container_width=True):
+            st.session_state.pop("operator", None)
+            st.rerun()
+
     st.subheader("Machine / Asset")
     selected_label = st.selectbox("Select equipment", list(machine_labels.keys()))
     selected_machine = machine_labels[selected_label]
@@ -96,7 +123,7 @@ with st.sidebar:
         st.caption(f"Session LLM cost: ${_session_usage.total_usd:.4f} · {_session_usage.n_calls} calls")
     _cap = get_settings().daily_spend_cap_usd
     if _cap:
-        _spent_today = DailyLedger(get_settings().cost_ledger_path).today_total(get_settings().tenant_id)
+        _spent_today = DailyLedger().today_total(_tenant_id)
         st.progress(
             min(_spent_today / _cap, 1.0) if _cap else 0.0,
             text=f"Today: ${_spent_today:.2f} / ${_cap:.2f} daily cap",
@@ -246,6 +273,8 @@ def submit_turn(question_text, uploaded_photo):
         chat_history=services.build_chat_history(st.session_state["turns"]),
         vision_context=vision_context,
         language=answer_language,
+        operator_id=operator.get("operator_id"),
+        tenant_id=_tenant_id,
     )
 
     st.markdown(
@@ -397,11 +426,43 @@ if st.session_state["turns"]:
     machine_id = st.session_state["selected_machine"]["machine_id"]
     if machine_id != "GENERAL":
         with st.expander(f"Maintenance history — {machine_id}"):
-            history = get_machine_history(machine_id)
+            history = get_machine_history(machine_id, include_resolutions=True)
             if history:
                 st.dataframe(history, use_container_width=True, hide_index=True)
             else:
                 st.caption("No recorded history for this machine.")
+
+        _last_turn = st.session_state["turns"][-1]
+        with st.expander("📝 Record what you actually did (adds to this machine's history)"):
+            _steps = st.text_area(
+                "Resolution steps taken",
+                key=f"resolution_{st.session_state.get('followup_key', 0)}",
+                placeholder="e.g. Isolated the drive, measured insulation resistance motor-to-earth (0.2 MΩ), "
+                "replaced the motor cable, retested. Fault cleared.",
+            )
+            _save_col, _cmms_col = st.columns(2)
+            with _save_col:
+                if st.button("Save to machine history", use_container_width=True):
+                    if not _steps.strip():
+                        st.warning("Type what you did first.")
+                    else:
+                        _ev_id = append_resolution_event(
+                            machine_id,
+                            operator_id=operator.get("operator_id"),
+                            steps_text=_steps.strip(),
+                            recommendation_id=_last_turn.get("audit_id"),
+                        )
+                        st.session_state["last_resolution_id"] = _ev_id
+                        st.success("Saved to this machine's history.")
+                        st.rerun()
+            with _cmms_col:
+                if st.button(
+                    "Send to CMMS/ERP (demo)",
+                    use_container_width=True,
+                    disabled="last_resolution_id" not in st.session_state,
+                ):
+                    _ack = audit.export_to_cmms(st.session_state["last_resolution_id"])
+                    st.toast(f"CMMS accepted — ref {_ack['cmms_ref']}")
 
     followup_col, _followup_spacer_col = st.columns([2, 1])
     with followup_col:

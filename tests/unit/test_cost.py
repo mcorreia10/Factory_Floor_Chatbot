@@ -113,8 +113,11 @@ class TestCostTrackingCallback:
 
 
 class TestDailyLedger:
+    """DailyLedger is backed by the audit SQLite cost_events table since phase 5, with
+    the same record / today_total API."""
+
     def test_record_then_today_total_filters_by_tenant_and_date(self, tmp_path):
-        ledger = DailyLedger(tmp_path / "ledger.jsonl")
+        ledger = DailyLedger(tmp_path / "audit.sqlite3")
         with freeze_time("2026-08-27 10:00:00"):
             acc = UsageAccumulator()
             acc.add(1_000_000, 0, "gpt-4.1-mini")  # $0.40
@@ -126,5 +129,5 @@ class TestDailyLedger:
             assert ledger.today_total("default") == pytest.approx(0.40)
             assert ledger.today_total("other") == pytest.approx(0.40)
 
-    def test_missing_file_is_zero(self, tmp_path):
-        assert DailyLedger(tmp_path / "nope.jsonl").today_total() == 0.0
+    def test_missing_db_is_zero(self, tmp_path):
+        assert DailyLedger(tmp_path / "does-not-exist.sqlite3").today_total() == 0.0

@@ -117,8 +117,8 @@ Automated tests now exist alongside the manual convention below (they do not rep
   today-vs-cap progress bar; a blocked turn shows `st.error(result.message)` and is not
   appended. Session total lives in `st.session_state["usage"]` (merged each turn).
 - Off by default: no `FACTORY_FLOOR_DAILY_SPEND_CAP_USD` -> cap check is a no-op; the
-  only effect is `result.cost` / the sidebar line being populated. Ledger at
-  `data/cost_ledger.jsonl` (gitignored).
+  only effect is `result.cost` / the sidebar line being populated. (Ledger storage moved
+  to the audit SQLite `cost_events` table in phase 5 — see below.)
 
 ### Blocking safety gate (phase 4 — done)
 
@@ -146,6 +146,43 @@ Automated tests now exist alongside the manual convention below (they do not rep
   integration-tested with `enforce_safety` monkeypatched (the agent fake can't do
   structured output). Live behaviour: `tests/integration/test_safety_gate_live.py`
   (`-m llm`).
+
+### Audit trail + operator identity + writable history (phase 5 — done)
+
+- `factory_floor/audit.py` — stdlib `sqlite3`, `PRAGMA journal_mode=WAL` (the answer to
+  the concurrent-write race in `dificuldades_e_oportunidades.md` #6). Tables:
+  `recommendations`, `recommendation_sources`, `tool_calls`, `cost_events`,
+  `resolution_events`. `record_recommendation(result, req)`, `get_audit_trail(...)`,
+  `append_resolution_event(...)`, `get_resolution_events(...)`, `export_to_cmms(...)`.
+- **The phase-3 JSONL cost ledger is gone** — `DailyLedger` now lives in `audit.py`
+  (backed by `cost_events`), re-exported from `cost.py` for existing imports.
+  `Settings.cost_ledger_path` / `FACTORY_FLOOR_COST_LEDGER_PATH` removed. When the audit
+  trail is enabled the cost row is written by `record_recommendation` (linked to the
+  recommendation); disabled -> `DailyLedger.record` writes a standalone row. The spend
+  cap reads `DailyLedger().today_total()` either way.
+- `factory_floor/identity.py` — `Operator`, `authenticate(operator_id, pin)`,
+  `list_operators()`, `hash_pin` (PBKDF2-SHA256, 100k rounds). Backed by committed
+  `operators.csv` (root, like `machines.csv`): 3 fake operators, **PINs 1234 / 5678 /
+  4321** — printed on purpose so the demo and tests can sign in; a real deployment gets
+  these rows from the plant's identity system.
+- `machines.py`: `get_machine_history(machine_id, include_resolutions=False)` — default
+  False keeps notebook 05 and the agent's history tool unchanged; True unions live
+  `resolution_events` (tagged `event_type="operator_resolution"`). The static CSV stays
+  read-only. New `machines.append_resolution_event(...)` delegates to `audit`.
+- `services.run_diagnostic._finalize`: if `settings.audit_enabled` (**default true**)
+  call `audit.record_recommendation` and set `result.audit_id`; the turn dict carries
+  `audit_id`.
+- `app.py`: optional sign-in gate (`FACTORY_FLOOR_REQUIRE_LOGIN`, default off); operator
+  chip + sign-out in the sidebar; a "Record what you actually did" expander per machine
+  with a "Save to machine history" + "Send to CMMS/ERP (demo)" pair; the history
+  expander now shows static + live rows.
+- **Deviation from plan:** the resolution-recording UI is one expander after the turns
+  (not per-turn) — Streamlit rerun/key management makes per-turn text areas + buttons
+  fiddly. It ties to the last turn's `audit_id`.
+- Paths: `FACTORY_FLOOR_AUDIT_DB_PATH` (default `data/audit.sqlite3`),
+  `FACTORY_FLOOR_CMMS_OUTBOX_PATH` (default `data/cmms_outbox.jsonl`) — both gitignored,
+  and pointed at tmp_path by `conftest._isolate_runtime_state` so tests never touch the
+  real files.
 
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 

@@ -46,13 +46,13 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture(autouse=True)
 def _isolate_runtime_state(tmp_path, monkeypatch):
-    """Point every writable runtime path at tmp_path so no test ever touches the real
-    data/cost_ledger.jsonl or data/audit.sqlite3, and clear the lru_cached settings
-    around each test so FACTORY_FLOOR_* monkeypatching takes effect."""
+    """Point the audit db (which also holds the cost ledger) at tmp_path so no test ever
+    touches the real data/audit.sqlite3, and clear the lru_cached settings around each
+    test so FACTORY_FLOOR_* monkeypatching takes effect."""
     from factory_floor.config import get_settings
 
-    monkeypatch.setenv("FACTORY_FLOOR_COST_LEDGER_PATH", str(tmp_path / "cost_ledger.jsonl"))
     monkeypatch.setenv("FACTORY_FLOOR_AUDIT_DB_PATH", str(tmp_path / "audit.sqlite3"))
+    monkeypatch.setenv("FACTORY_FLOOR_CMMS_OUTBOX_PATH", str(tmp_path / "cmms_outbox.jsonl"))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

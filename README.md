@@ -435,6 +435,8 @@ factory_floor_milestone/
 ├── factory_floor/
 │   ├── config.py         # shared paths / collection name + typed Settings object
 │   ├── secrets.py        # get_secret() — the seam a managed vault plugs into
+│   ├── identity.py       # operator sign-in against operators.csv (PBKDF2 PIN hashes)
+│   ├── audit.py          # SQLite audit trail (recommendations/sources/tools/cost) + writable resolutions + CMMS demo
 │   ├── ingestion.py      # PDF loading + metadata tagging (equipment_type read from manual_sources.csv)
 │   ├── vectorstore.py    # chunking, embeddings, Chroma build/load
 │   ├── rag.py            # prompt, retriever, ask(), history-aware query reformulation, @traceable
@@ -465,7 +467,8 @@ factory_floor_milestone/
     ├── 09_safety_validator.ipynb
     ├── 10_evaluation_baseline.ipynb
     ├── 11_retrieval_benchmark.ipynb
-    └── 12_service_layer.ipynb
+    ├── 12_service_layer.ipynb
+    └── 13_audit_trail.ipynb
 ```
 
 The notebooks and `app.py` both import their pipeline logic from `factory_floor/` — the notebooks stay for step-by-step exploration/demo, but no logic is duplicated between them and the Streamlit app. Since the professionalization work, `app.py` is a thin Streamlit view over `factory_floor/services.py`: it reads widgets and session state, calls `services.run_diagnostic(...)`, and renders the result.
