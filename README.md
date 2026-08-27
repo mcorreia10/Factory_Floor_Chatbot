@@ -436,6 +436,7 @@ factory_floor_milestone/
 │   ├── config.py         # shared paths / collection name + typed Settings object
 │   ├── secrets.py        # get_secret() — the seam a managed vault plugs into
 │   ├── identity.py       # operator sign-in against operators.csv (PBKDF2 PIN hashes)
+│   ├── tenancy.py        # multi-tenant seam — resolve_collection(tenant_id); see docs/multi_tenancy.md
 │   ├── audit.py          # SQLite audit trail (recommendations/sources/tools/cost) + writable resolutions + CMMS demo
 │   ├── ingestion.py      # PDF loading + metadata tagging (equipment_type read from manual_sources.csv)
 │   ├── vectorstore.py    # chunking, embeddings, Chroma build/load

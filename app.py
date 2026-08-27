@@ -6,13 +6,12 @@ from dotenv import load_dotenv
 
 from factory_floor import audit, identity, services
 from factory_floor.cache import SemanticCache
-from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR, get_settings
+from factory_floor.config import MANUAL_DIR, VECTOR_DIR, get_settings
 from factory_floor.cost import DailyLedger, UsageAccumulator
 from factory_floor.machines import append_resolution_event, get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
 from factory_floor.rag import get_llm
 from factory_floor.secrets import get_secret
-from factory_floor.vectorstore import get_embeddings, load_vectorstore
 from factory_floor.vision import CLASSIFIER_PATH, load_classifier
 
 load_dotenv()
@@ -71,6 +70,7 @@ if get_settings().require_login and "operator" not in st.session_state:
     st.stop()
 
 operator = st.session_state.get("operator") or {}
+_tenant_id = operator.get("tenant_id", get_settings().tenant_id)
 
 if not VECTOR_DIR.exists() or not any(VECTOR_DIR.iterdir()):
     st.error(
@@ -80,13 +80,14 @@ if not VECTOR_DIR.exists() or not any(VECTOR_DIR.iterdir()):
     st.stop()
 
 @st.cache_resource
-def load_rag_components():
-    embeddings = get_embeddings()
-    vectorstore = load_vectorstore(VECTOR_DIR, COLLECTION_NAME, embeddings=embeddings)
+def load_rag_components(tenant_id):
+    # tenant_id is the cache key — a real multi-tenant deployment loads each tenant's
+    # own collection (phase 7 seam); "default" resolves to the existing store.
+    vectorstore = services.load_tenant_vectorstore(tenant_id)
     llm = get_llm()
     return vectorstore, llm
 
-vectorstore, llm = load_rag_components()
+vectorstore, llm = load_rag_components(_tenant_id)
 
 GENERAL_MACHINE = {
     "machine_id": "GENERAL",
@@ -100,8 +101,6 @@ GENERAL_MACHINE = {
 machines = load_machines()
 machine_labels = {"🌐 General question (search all manuals)": GENERAL_MACHINE}
 machine_labels.update({f"{m['machine_id']} — {m['family']} ({m['location']})": m for m in machines})
-
-_tenant_id = operator.get("tenant_id", get_settings().tenant_id)
 
 with st.sidebar:
     if operator:

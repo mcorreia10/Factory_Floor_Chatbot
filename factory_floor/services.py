@@ -18,7 +18,7 @@ from typing import Any
 from factory_floor import audit
 from factory_floor.agent import run_diagnostic_agent, stream_diagnostic_agent
 from factory_floor.cache import SemanticCache
-from factory_floor.config import get_settings
+from factory_floor.config import VECTOR_DIR, get_settings
 from factory_floor.cost import (
     PENDING_TURN_ESTIMATE_USD,
     CostTrackingCallback,
@@ -30,9 +30,22 @@ from factory_floor.cost import (
 from factory_floor.fault_codes import extract_possible_codes
 from factory_floor.rag import build_chat_history, build_retriever, get_llm
 from factory_floor.safety import enforce_safety
+from factory_floor.tenancy import resolve_collection
+from factory_floor.vectorstore import get_embeddings, load_vectorstore
 from factory_floor.vision import classify_defect_trained
 
 DEFAULT_TOP_K = 5
+
+
+def load_tenant_vectorstore(tenant_id: str = "default", *, embeddings=None, persist_directory=None):
+    """The manual vector store for a tenant. ``default`` resolves to the existing
+    collection, so nothing changes for the current single-tenant build; phase 7's seam
+    is that any other tenant gets its own collection (``docs/multi_tenancy.md``)."""
+    return load_vectorstore(
+        persist_directory or VECTOR_DIR,
+        resolve_collection(tenant_id),
+        embeddings=embeddings or get_embeddings(),
+    )
 
 # Re-exported so app.py / notebooks build chat history through the service layer rather
 # than reaching into rag.py directly.

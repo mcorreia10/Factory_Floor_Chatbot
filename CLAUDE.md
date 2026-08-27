@@ -212,6 +212,28 @@ Automated tests now exist alongside the manual convention below (they do not rep
 - `FACTORY_FLOOR_SEMANTIC_CACHE_DIR` (default `data/qa_cache/`, gitignored) — pointed at
   tmp_path by the conftest isolation fixture.
 
+### Multi-tenant (phase 7 — design-only + seams)
+
+- `factory_floor/tenancy.py`: `resolve_collection(tenant_id)` (`default`/None ->
+  `settings.collection_name`; else `"{base}__{sanitised}"`), `list_tenants()` /
+  `get_tenant()` off `tenants.csv` (root, committed, one `default` row).
+- `services.load_tenant_vectorstore(tenant_id)` uses it; `app.py::load_rag_components`
+  is now keyed on `tenant_id` (its `@st.cache_resource` key), read from
+  `operator["tenant_id"]` (default `"default"`). For `default` the resolved collection
+  name is byte-identical to before — nothing changes for the running app.
+- Most tenant seams were already threaded by earlier phases: `tenant_id` on
+  `DiagnosticRequest`, on the `recommendations`/`cost_events`/`resolution_events` tables,
+  in `SemanticCache`'s key, and on `operators.csv` rows; `DailyLedger.today_total` and
+  `get_audit_trail` filter on it.
+- **Deviation:** notebooks 01/02 were NOT edited to read a `TENANT_ID` env var
+  (re-running the ingestion notebooks risks the demo-critical `data/vectorstore/`). The
+  exact one-line change they need is written in `docs/multi_tenancy.md`.
+- The design + threat model is `docs/multi_tenancy.md`. Not built: tenant admin surface,
+  per-tenant ingestion pipeline, real auth carrying the tenant, physical DB separation.
+- Tests: `tests/unit/test_tenancy.py`, `tests/integration/test_tenant_isolation.py`
+  (two collections in one persist dir; retrieval scoped to one never returns the other's
+  docs).
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in
