@@ -6,6 +6,12 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+# Test / lint tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
 # Generated data (regenerate via download_manuals.py + notebooks 01-02)
 data/manuals/
 data/vectorstore/

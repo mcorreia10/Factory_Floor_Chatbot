@@ -20,6 +20,43 @@ the 3-page project document — see `dificuldades_e_oportunidades.md`. The histo
 (2026-08-18 through 2026-08-19) is kept for context on how earlier milestones were
 built; don't re-derive it from scratch.
 
+## 2026-08-27 — Professionalization work started (branch `professionalization`)
+
+A multi-phase "production-readiness" effort is underway on a dedicated branch
+`professionalization`, to be merged back to `master` with a single `--no-ff` merge only
+when the whole thing is green. The plan lives at
+`~/.claude/plans/como-podemos-planear-ent-o-effervescent-cocoa.md`. Phases: 0 test
+harness + CI · 1 Settings object + secrets seam · 2 service layer (`services.py`) ·
+3 cost control · 4 blocking safety gate · 5 audit trail + operator identity + writable
+history · 6 semantic cache · 7 multi-tenant (design-only + seams) · 8 minimal FastAPI +
+Dockerfile. Every new behaviour is **opt-in / off by default** — a fresh clone with only
+`OPENAI_API_KEY` must behave exactly as before. `.env` stays untouched (existing owner
+decision); new knobs are `FACTORY_FLOOR_*` env vars, documented in `.env.example` only.
+
+### Testing (phase 0 — done)
+
+Automated tests now exist alongside the manual convention below (they do not replace the
+`nbconvert` sweep + live Playwright smoke, which still run at each phase boundary).
+
+- **Env:** the project runs on the conda `base` env (`/opt/miniconda3/bin/python`,
+  Python 3.13) — *not* the Framework `python3` 3.14 on PATH, which only has a partial
+  install. Run tests with `/opt/miniconda3/bin/python -m pytest` or
+  `make test PYTHON=/opt/miniconda3/bin/python`.
+- **Layout:** `tests/unit/` (fast, no network — the default) and `tests/integration/`
+  (build a tiny real Chroma store with `DeterministicFakeEmbedding`, no API key).
+  Markers `unit` / `integration` are auto-applied by directory (see `tests/conftest.py`).
+  `llm`-marked tests need a real key and are skipped in CI / by `make test`.
+- **Fake models:** every `factory_floor` entry point takes `llm=` — `conftest.py` has
+  `make_fake_llm` (a `GenericFakeChatModel`) and `make_structured_llm` (supports
+  `.with_structured_output()`, which `GenericFakeChatModel` does not).
+- **`langchain_openai` imports slowly here (~6–19 s)** because it transitively pulls in
+  `transformers` + `torch`. The `_no_network` autouse guard therefore does *not* import
+  anything — it patches only already-imported modules — so a pure-logic test file stays
+  fast. First test that touches `factory_floor.rag`/`.agent` pays the import cost once.
+- **Config:** `pyproject.toml` (`[tool.pytest.ini_options]`, `[tool.ruff]` — minimal
+  `select = ["E4","E7","E9","F"]`, source only, notebooks excluded). `requirements-dev.txt`.
+  CI: `.github/workflows/ci.yml` (ruff + `pytest -m "not llm"` on py3.12/3.13, no key).
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in
