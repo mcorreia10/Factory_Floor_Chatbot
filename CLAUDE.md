@@ -120,6 +120,33 @@ Automated tests now exist alongside the manual convention below (they do not rep
   only effect is `result.cost` / the sidebar line being populated. Ledger at
   `data/cost_ledger.jsonl` (gitignored).
 
+### Blocking safety gate (phase 4 — done)
+
+- `safety.py` gained (additive; the 3 audit functions for notebooks 09/10 are untouched):
+  `enforce_safety(answer, *, llm, mode, language)`, `SafetyGateResult` (`action` =
+  `pass` | `rewritten` | `held`), `SAFETY_REWRITE_SYSTEM_PROMPT`, `FIXED_HELD_FALLBACK`,
+  `_tokens_preserved` (a rewrite must keep every `[SOURCE n]` and fault code).
+- Logic: keyword check first; **no physical action -> pass, no LLM judge call** (cheap
+  path for clarifying questions / explanations). Otherwise run the judge; if it fails,
+  `mode="rewrite"` does one rewrite + re-check + citation-survival check (deliver if it
+  now passes and kept citations, else hold); `mode="block"` holds without rewriting.
+  Held answers are replaced with `FIXED_HELD_FALLBACK`.
+- `services.run_diagnostic` runs the gate on the finished answer; `result.answer` becomes
+  the gate's `delivered_answer`, `result.safety` = `SafetyGateResult.as_dict()`.
+  **Streaming:** with the gate active the raw tokens can change, so the stream is drained
+  silently and the gated text is emitted as one chunk (spinner-then-answer). With
+  `mode="off"` live token streaming is preserved. `safety_gate_on_stream` exists in
+  Settings but currently both values behave the same (Streamlit can't un-write a stream).
+- `app.py`: `held` -> `st.error` + the fallback text is what's shown; `rewritten` ->
+  `st.info`; `render_turn` shows a small badge. `turn["safety"]` carries the verdict.
+- Default `mode="rewrite"` — so the default experience now sometimes rewrites/holds an
+  answer. Set `FACTORY_FLOOR_SAFETY_GATE_MODE=off` for the exact pre-phase-4 behaviour.
+- **Test note:** `enforce_safety` needs a model that both judges (`with_structured_output`)
+  and rewrites (`invoke`) — `conftest.make_gate_llm`. `run_diagnostic`'s gate wiring is
+  integration-tested with `enforce_safety` monkeypatched (the agent fake can't do
+  structured output). Live behaviour: `tests/integration/test_safety_gate_live.py`
+  (`-m llm`).
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in

@@ -159,6 +159,13 @@ def render_turn(turn, turn_index):
     st.subheader("Diagnostic reasoning")
     st.markdown(turn["answer"])
 
+    safety = turn.get("safety") or {}
+    if safety.get("action") == "held":
+        st.error("🛑 This answer was withheld by the safety gate — it recommended physical work "
+                 "without stating precautions first. The safe fallback is shown above.")
+    elif safety.get("action") == "rewritten":
+        st.caption("🛡️ Safety precautions were added to this answer before it was shown.")
+
     tool_trace = turn.get("tool_trace") or []
     if tool_trace:
         st.caption("Tools used:")
@@ -258,6 +265,13 @@ def submit_turn(question_text, uploaded_photo):
     st.subheader("Diagnostic reasoning")
     if first_chunk is not None:
         st.write_stream(itertools.chain([first_chunk], generator))
+
+    safety = result.safety or {}
+    if safety.get("action") == "held":
+        st.error("🛑 This answer was withheld by the safety gate — it recommended physical work "
+                 "without stating precautions first. A safe fallback is shown above.")
+    elif safety.get("action") == "rewritten":
+        st.info("Safety precautions were added to this answer before it was shown.")
 
     turn = services.assemble_turn(
         result,

@@ -1,8 +1,11 @@
 import re
+from dataclasses import asdict, dataclass
+from typing import Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
+from factory_floor.fault_codes import extract_codes
 from factory_floor.rag import get_llm
 
 SAFETY_JUDGE_SYSTEM_PROMPT = """You are auditing a maintenance-copilot answer for a
@@ -131,3 +134,123 @@ def audit_answers(answers: list, llm=None) -> dict:
         "results": judge_results,
         "keyword_results": keyword_results,
     }
+
+
+# --- live blocking gate (phase 4) ----------------------------------------------
+#
+# Everything above is the post-hoc *audit* used by notebooks 09/10 to measure the
+# safety-first failure rate. `enforce_safety` below turns those same checks into a live
+# gate that runs on every answer before the operator sees it.
+
+FIXED_HELD_FALLBACK = (
+    "This answer recommended physical work on the equipment without first stating "
+    "adequate safety precautions, so it was withheld. Before doing anything: isolate "
+    "and de-energize the drive or motor, apply lockout/tagout, wait for the DC link "
+    "capacitors to discharge, verify the absence of voltage, and treat the work as for "
+    "qualified personnel only. Consult the equipment manual or a qualified technician "
+    "for the specific procedure."
+)
+
+SAFETY_REWRITE_SYSTEM_PROMPT = """You revise an industrial-maintenance answer so it is
+safe to hand to an operator. The answer instructs at least one physical action on the
+equipment but does not put safety precautions before the first such action.
+
+Rewrite it so that:
+- it opens with a short "Safety precautions" section (isolate and de-energize, apply
+  lockout/tagout, wait for the DC link capacitors to discharge, verify absence of
+  voltage, qualified personnel only) placed BEFORE the first physical step;
+- every technical instruction, value, fault code, parameter number and equipment name
+  from the original is kept unchanged;
+- every source citation from the original is kept verbatim, exactly as it appears
+  (a bracketed SOURCE marker, or a "file, page N" reference);
+- nothing new is invented -- no new codes, limits, or procedures.
+
+Return only the rewritten answer, nothing else."""
+
+_SOURCE_TOKEN = re.compile(r"\[SOURCE\s+\d+\]", re.IGNORECASE)
+
+
+def _tokens_preserved(original: str, rewritten: str) -> bool:
+    """A rewrite must not silently drop a citation or a fault code."""
+    for token in set(_SOURCE_TOKEN.findall(original)):
+        if token.lower() not in rewritten.lower():
+            return False
+    rewritten_upper = rewritten.upper()
+    return all(code in rewritten_upper for code in extract_codes(original))
+
+
+@dataclass
+class SafetyGateResult:
+    action: Literal["pass", "rewritten", "held"]
+    original_answer: str | None
+    delivered_answer: str | None
+    audit: dict
+    reason: str
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+def enforce_safety(answer_text: str | None, *, llm=None, mode: str = "rewrite",
+                   language: str = "English") -> SafetyGateResult:
+    """Gate one answer before it reaches the operator.
+
+    mode="off"     -> always pass, unchanged.
+    mode="rewrite" -> if the answer instructs a physical action without a
+                      precautions-first section, rewrite it once and re-check; deliver
+                      the rewrite if it now passes and kept every citation/fault code,
+                      otherwise hold.
+    mode="block"   -> same detection, but never rewrite -- hold instead.
+
+    Cheap path: an answer with no instructed physical action (a clarifying question, a
+    pure explanation) passes on the deterministic keyword check alone, no LLM judge call.
+    """
+    text = answer_text or ""
+    if mode == "off" or not text.strip():
+        return SafetyGateResult(
+            "pass", answer_text, answer_text,
+            {"skipped": mode == "off"},
+            "gate disabled" if mode == "off" else "empty answer",
+        )
+
+    keyword = check_safety_precautions_keyword(text)
+    audit: dict = {"keyword": keyword}
+
+    if not keyword["recommends_action"]:
+        return SafetyGateResult("pass", answer_text, answer_text, audit,
+                                "no physical action instructed")
+
+    llm = llm or get_llm()
+    judge = check_safety_precautions(text, llm=llm)
+    audit["judge"] = judge
+    if judge["passed"]:
+        return SafetyGateResult("pass", answer_text, answer_text, audit,
+                                "precautions present and stated first")
+
+    if mode == "block":
+        return SafetyGateResult("held", answer_text, FIXED_HELD_FALLBACK, audit,
+                                "unsafe precaution ordering; mode=block")
+
+    human = (
+        f"Rewrite the following answer. Respond in {language}. Keep every source "
+        f"citation and every fault code exactly as written.\n\n---\n{text}"
+    )
+    rewritten = llm.invoke(
+        [SystemMessage(SAFETY_REWRITE_SYSTEM_PROMPT), HumanMessage(content=human)]
+    ).content.strip()
+
+    recheck = check_safety_precautions(rewritten, llm=llm)
+    preserved = _tokens_preserved(text, rewritten)
+    audit["recheck"] = recheck
+    audit["citations_preserved"] = preserved
+
+    if recheck["passed"] and preserved:
+        return SafetyGateResult("rewritten", answer_text, rewritten, audit,
+                                "rewrite adds a precautions-first section")
+
+    reason = (
+        "rewrite still fails the safety check"
+        if not recheck["passed"]
+        else "rewrite dropped a citation or fault code"
+    )
+    return SafetyGateResult("held", answer_text, FIXED_HELD_FALLBACK, audit, reason)

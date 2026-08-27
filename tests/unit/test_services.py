@@ -60,11 +60,16 @@ class TestRunDiagnostic:
         assert result.answer == "Earth fault suspected."
         assert result.run_id == "run-123"
         assert result.cache_hit is False and result.blocked is False
-        assert result.safety is None
+        # safety gate ran (phase 4) — a non-action answer passes on the cheap keyword path.
+        assert result.safety["action"] == "pass"
         # cost is always a dict now (phase 3); the stubbed agent never invokes the callback.
         assert result.cost["n_calls"] == 0
 
     def test_streaming_fills_the_result_only_after_the_generator_is_consumed(self, monkeypatch, fake_llm):
+        # gate off -> raw tokens pass straight through (the gated path is covered in
+        # test_safety_gate_integration.py).
+        monkeypatch.setenv("FACTORY_FLOOR_SAFETY_GATE_MODE", "off")
+
         class FakeStreamed:
             run_id = "run-xyz"
             answer = None
@@ -106,6 +111,7 @@ class TestAssembleTurn:
             tool_trace=[{"tool": "search_manuals", "input": {}}],
             run_id="r1",
             language="English",
+            safety={"action": "pass", "reason": "no physical action instructed"},
         )
 
     def test_text_turn_shape(self):
@@ -119,6 +125,7 @@ class TestAssembleTurn:
             "documents": ["d1"],
             "sources": "- ListManual.pdf — page 908",
             "tool_trace": [{"tool": "search_manuals", "input": {}}],
+            "safety": {"action": "pass", "reason": "no physical action instructed"},
             "image_bytes": None,
             "vision_context": None,
             "predicted_label": None,

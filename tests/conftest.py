@@ -153,6 +153,35 @@ def make_structured_llm():
 
 
 @pytest.fixture
+def make_gate_llm():
+    """A fake for `safety.enforce_safety`: one model that both judges (via
+    `.with_structured_output(SafetyAudit)`) and rewrites (via `.invoke()`).
+
+    `audits` is the sequence of SafetyAudit objects the judge returns in order (the
+    original-answer judgement first, then the re-check of the rewrite). `rewrite_text`
+    is what `.invoke()` returns for the rewrite call."""
+
+    def _make(audits, rewrite_text="Safety precautions: de-energize and lock out first. [SOURCE 1] Then check the cable."):
+        seq = list(audits) or [None]
+        shared = itertools.chain(seq[:-1], itertools.repeat(seq[-1]))
+
+        class _Runnable:
+            def invoke(self, *args, **kwargs):
+                return next(shared)
+
+        class _LLM:
+            def with_structured_output(self, schema):
+                return _Runnable()
+
+            def invoke(self, *args, **kwargs):
+                return AIMessage(content=rewrite_text)
+
+        return _LLM()
+
+    return _make
+
+
+@pytest.fixture
 def make_doc():
     """Factory for a LangChain Document with the metadata shape the project expects
     (`source_file`, `page`; extra keys via kwargs)."""

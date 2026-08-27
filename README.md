@@ -446,7 +446,7 @@ factory_floor_milestone/
 │   ├── vision.py         # defect classification (trained + zero-shot), recommend_actions(), evaluate_classifier()
 │   ├── defect_dataset.py # MVTec AD subset scan + stratified manifest
 │   ├── tracing.py        # LangSmith project override + trace_config()/run_url() helpers
-│   ├── safety.py         # Safety Validator — LLM-judge + keyword audit of safety-first ordering
+│   ├── safety.py         # Safety Validator — post-hoc audit + live blocking gate (enforce_safety)
 │   └── evaluation.py     # eval_scenarios.csv loader + scoring + agent-vs-baseline pipeline runner
 ├── tests/                # pytest suite (unit + integration); see pyproject.toml, Makefile
 ├── data/

@@ -27,6 +27,7 @@ from factory_floor.cost import (
 )
 from factory_floor.fault_codes import extract_possible_codes
 from factory_floor.rag import build_chat_history, build_retriever, get_llm
+from factory_floor.safety import enforce_safety
 from factory_floor.vision import classify_defect_trained
 
 DEFAULT_TOP_K = 5
@@ -168,6 +169,13 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
         vectorstore, req.equipment_type, llm, tenant_id=req.tenant_id
     )
     agent_config = {"callbacks": [callback]}
+    gate_active = settings.safety_gate_mode != "off"
+
+    def _apply_gate(raw_answer: str | None):
+        gate = enforce_safety(
+            raw_answer, llm=llm, mode=settings.safety_gate_mode, language=req.language
+        )
+        return gate.delivered_answer, gate.as_dict()
 
     def _finalize(result: DiagnosticResult) -> None:
         result.cost = accumulator.as_dict()
@@ -196,12 +204,21 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
         )
 
         def _wrapped():
-            yield from generator
-            result.answer = streamed.answer
+            # With the gate active the answer can change (rewrite) or be withheld
+            # (hold), so the raw tokens can't be shown live — drain silently, gate the
+            # finished text, then emit it once. With the gate off, stream normally.
+            if gate_active:
+                for _ in generator:
+                    pass
+            else:
+                yield from generator
             result.documents = streamed.documents
             result.sources = streamed.sources
             result.tool_trace = streamed.tool_trace
+            result.answer, result.safety = _apply_gate(streamed.answer)
             _finalize(result)
+            if gate_active:
+                yield result.answer or ""
 
         return _wrapped(), result
 
@@ -215,14 +232,16 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
         language=req.language,
         config=agent_config,
     )
+    delivered, safety = _apply_gate(raw["answer"])
     result = DiagnosticResult(
         question=raw["question"],
-        answer=raw["answer"],
+        answer=delivered,
         documents=raw["documents"],
         sources=raw["sources"],
         tool_trace=raw["tool_trace"],
         run_id=raw["run_id"],
         language=raw["language"],
+        safety=safety,
     )
     _finalize(result)
     return result
@@ -240,6 +259,7 @@ def assemble_turn(result: DiagnosticResult, *, image_bytes: bytes | None,
         "documents": result.documents,
         "sources": result.sources,
         "tool_trace": result.tool_trace,
+        "safety": result.safety,
         "image_bytes": image_bytes,
         "vision_context": vision_context,
         "predicted_label": classification["predicted_label"] if classification else None,

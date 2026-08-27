@@ -23,11 +23,14 @@ def _request():
 
 
 def test_blocking_turn_end_to_end(tmp_vectorstore, make_agent_fake_llm):
-    llm = make_agent_fake_llm("F30021 is a power-unit ground fault; check the motor cable.")
+    # Gate-neutral answer (no instructed physical action) so the default safety gate
+    # passes it on the cheap keyword path without an LLM judge call.
+    llm = make_agent_fake_llm("F30021 indicates a power-unit ground fault.")
     result = services.run_diagnostic(_request(), vectorstore=tmp_vectorstore, llm=llm)
 
     assert isinstance(result, services.DiagnosticResult)
-    assert result.answer == "F30021 is a power-unit ground fault; check the motor cable."
+    assert result.answer == "F30021 indicates a power-unit ground fault."
+    assert result.safety["action"] == "pass"
     assert result.tool_trace == []  # the fake model does not call tools
     assert result.run_id
     assert result.blocked is False and result.cache_hit is False
