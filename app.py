@@ -1,21 +1,25 @@
 import io
 import itertools
-import os
 from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
 from factory_floor.agent import stream_diagnostic_agent
-from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR
+from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR, get_settings
 from factory_floor.fault_codes import extract_possible_codes
 from factory_floor.machines import get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
 from factory_floor.rag import build_chat_history, build_retriever, get_llm
+from factory_floor.secrets import get_secret
 from factory_floor.vectorstore import get_embeddings, load_vectorstore
 from factory_floor.vision import CLASSIFIER_PATH, classify_defect_trained, load_classifier
 
 load_dotenv()
+# factory_floor is imported above (which snapshots Settings) before load_dotenv() runs,
+# so drop that pre-.env snapshot now — the first real get_settings() call below reads
+# the loaded environment. See CLAUDE.md 2026-08-21 on why the import order is fixed.
+get_settings.cache_clear()
 
 st.set_page_config(page_title="The Factory Floor", page_icon="🏭", layout="wide")
 
@@ -44,7 +48,7 @@ answer_language = LANGUAGES[selected_language]
 text_scale = {"Normal": 100, "Large": 130, "Extra large": 160}[text_size]
 st.markdown(f"<style>html {{ font-size: {text_scale}%; }}</style>", unsafe_allow_html=True)
 
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = get_secret("OPENAI_API_KEY")
 if not api_key:
     st.error("OPENAI_API_KEY is missing. Add it to a .env file before launching the app.")
     st.stop()

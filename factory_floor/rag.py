@@ -7,9 +7,12 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langsmith import traceable
 
+from factory_floor.config import get_settings
 from factory_floor.fault_codes import extract_codes, lookup_code
 
-LLM_MODEL = "gpt-4.1-mini"
+# Exported name kept for agent.py / evaluation.py / trace metadata. Value is sourced
+# from Settings (default "gpt-4.1-mini", overridable via FACTORY_FLOOR_LLM_MODEL).
+LLM_MODEL = get_settings().llm_model
 MAX_HISTORY_TURNS = 4
 
 SYSTEM_PROMPT = """You are the retrieval component of an industrial maintenance copilot for electric motors and variable-frequency drives.
@@ -44,8 +47,19 @@ CONTEXTUALIZE_PROMPT = ChatPromptTemplate.from_messages([
 ])
 
 
-def get_llm():
-    return ChatOpenAI(model=LLM_MODEL, temperature=0)
+def get_llm(model=None, temperature=None, callbacks=None):
+    """The single LLM factory for the whole project. All arguments are optional and
+    default to Settings; `callbacks` is passed straight through to ChatOpenAI so the
+    cost-tracking callback (phase 3) can attach here. Every existing no-arg caller
+    keeps identical behaviour."""
+    settings = get_settings()
+    kwargs = {
+        "model": model or settings.llm_model,
+        "temperature": settings.llm_temperature if temperature is None else temperature,
+    }
+    if callbacks is not None:
+        kwargs["callbacks"] = callbacks
+    return ChatOpenAI(**kwargs)
 
 
 def contextualize_question(question, chat_history, llm=None):

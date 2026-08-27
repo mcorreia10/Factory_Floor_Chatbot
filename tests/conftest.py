@@ -40,6 +40,17 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(autouse=True)
+def _reset_settings_cache():
+    """factory_floor.config.get_settings() is lru_cached. Clear it around every test so
+    monkeypatch.setenv on FACTORY_FLOOR_* actually takes effect."""
+    from factory_floor.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
 def _no_network(request, monkeypatch):
     """Unit tests only: make constructing a real OpenAI client raise.
 

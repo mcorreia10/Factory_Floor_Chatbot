@@ -5,13 +5,15 @@ from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-EMBEDDING_MODEL = "text-embedding-3-small"
+from factory_floor.config import get_settings
+
+EMBEDDING_MODEL = get_settings().embedding_model
 DEFAULT_CHUNK_SIZE = 800
 DEFAULT_CHUNK_OVERLAP = 120
 
 
-def get_embeddings():
-    return OpenAIEmbeddings(model=EMBEDDING_MODEL)
+def get_embeddings(model=None):
+    return OpenAIEmbeddings(model=model or get_settings().embedding_model)
 
 
 def chunk_documents(documents, chunk_size=DEFAULT_CHUNK_SIZE, chunk_overlap=DEFAULT_CHUNK_OVERLAP):
