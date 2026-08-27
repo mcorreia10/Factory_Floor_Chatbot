@@ -107,6 +107,7 @@ class Settings:
     semantic_cache_enabled: bool = False
     semantic_cache_similarity_threshold: float = 0.95
     semantic_cache_ttl_hours: int = 720
+    semantic_cache_dir: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "qa_cache")
 
     # Audit trail + identity (phase 5)
     audit_enabled: bool = True
@@ -138,6 +139,9 @@ class Settings:
                 "FACTORY_FLOOR_SEMANTIC_CACHE_SIMILARITY_THRESHOLD", 0.95
             ),
             semantic_cache_ttl_hours=_env_int("FACTORY_FLOOR_SEMANTIC_CACHE_TTL_HOURS", 720),
+            semantic_cache_dir=Path(
+                _env_str("FACTORY_FLOOR_SEMANTIC_CACHE_DIR", str(PROJECT_ROOT / "data" / "qa_cache"))
+            ),
             audit_enabled=_env_bool("FACTORY_FLOOR_AUDIT_ENABLED", True),
             require_login=_env_bool("FACTORY_FLOOR_REQUIRE_LOGIN", False),
             audit_db_path=Path(

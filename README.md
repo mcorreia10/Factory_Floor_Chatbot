@@ -445,6 +445,7 @@ factory_floor_milestone/
 │   ├── agent.py          # Diagnostic Agent — tools, safety-first rule, tracing config, run_diagnostic_agent()
 │   ├── services.py       # application service layer — a diagnostic turn as plain functions (no Streamlit)
 │   ├── cost.py           # token metering callback, per-session usage, daily ledger + spend cap
+│   ├── cache.py          # opt-in semantic answer cache (Chroma, cosine); exact match for fault codes
 │   ├── vision.py         # defect classification (trained + zero-shot), recommend_actions(), evaluate_classifier()
 │   ├── defect_dataset.py # MVTec AD subset scan + stratified manifest
 │   ├── tracing.py        # LangSmith project override + trace_config()/run_url() helpers
@@ -468,7 +469,8 @@ factory_floor_milestone/
     ├── 10_evaluation_baseline.ipynb
     ├── 11_retrieval_benchmark.ipynb
     ├── 12_service_layer.ipynb
-    └── 13_audit_trail.ipynb
+    ├── 13_audit_trail.ipynb
+    └── 14_semantic_cache.ipynb
 ```
 
 The notebooks and `app.py` both import their pipeline logic from `factory_floor/` — the notebooks stay for step-by-step exploration/demo, but no logic is duplicated between them and the Streamlit app. Since the professionalization work, `app.py` is a thin Streamlit view over `factory_floor/services.py`: it reads widgets and session state, calls `services.run_diagnostic(...)`, and renders the result.

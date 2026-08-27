@@ -184,6 +184,34 @@ Automated tests now exist alongside the manual convention below (they do not rep
   and pointed at tmp_path by `conftest._isolate_runtime_state` so tests never touch the
   real files.
 
+### Semantic answer cache (phase 6 — done)
+
+- `factory_floor/cache.py::SemanticCache` — its own Chroma collection
+  `factory_floor_qa_cache` in `data/qa_cache/` (`hnsw:space=cosine`, so
+  `similarity = 1 - similarity_search_with_score` distance is a real 0-1 number — the
+  l2 relevance-fn trap from 2026-08-25 is avoided). Opt-in via
+  `FACTORY_FLOOR_SEMANTIC_CACHE_ENABLED`.
+- Scoped by machine / equipment_type / language / tenant. **Fault-code questions**
+  (`_code_signature` non-empty — catches `F3OO21` typos too via `extract_possible_codes`)
+  require an exact normalized-question match via a metadata `.get(where=...)` — no
+  embedding call, never a near-miss. Prose questions: cosine similarity >= threshold
+  (default 0.95). A code-free question is never served from a code-bearing entry.
+- `store()` only takes first-turn, no-photo questions whose safety action is `pass` or
+  `rewritten` (never `held`, never blocked). `version_stamp` (embedding model + main
+  collection name) + a TTL (720h) bound staleness; a manual-store rebuild should also
+  call `SemanticCache().clear()` (documented, not automatic).
+- `services.run_diagnostic`: cache lookup runs **before the spend-cap check** (a hit
+  costs nothing). A hit builds a `DiagnosticResult` with `cache_hit=True`, zero cost,
+  `safety={"action":"pass","reason":"served from semantic cache"}`, still writes an
+  audit row (flagged `cache_hit=1`), skips the agent + gate. Streaming: yields the
+  answer as one chunk. Miss -> normal path -> `store()` in `_finalize`. The cache reuses
+  the **main store's embedding function** (`vectorstore.embeddings`) so a fake-embedding
+  test store keeps the cache offline.
+- `app.py`: sidebar shows the cache size + a "Clear answer cache" button when enabled;
+  `render_turn` shows a "⚡ Answered from the cache" caption; `turn["cache_hit"]` persists it.
+- `FACTORY_FLOOR_SEMANTIC_CACHE_DIR` (default `data/qa_cache/`, gitignored) — pointed at
+  tmp_path by the conftest isolation fixture.
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in

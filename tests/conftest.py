@@ -53,6 +53,7 @@ def _isolate_runtime_state(tmp_path, monkeypatch):
 
     monkeypatch.setenv("FACTORY_FLOOR_AUDIT_DB_PATH", str(tmp_path / "audit.sqlite3"))
     monkeypatch.setenv("FACTORY_FLOOR_CMMS_OUTBOX_PATH", str(tmp_path / "cmms_outbox.jsonl"))
+    monkeypatch.setenv("FACTORY_FLOOR_SEMANTIC_CACHE_DIR", str(tmp_path / "qa_cache"))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

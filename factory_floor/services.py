@@ -17,6 +17,7 @@ from typing import Any
 
 from factory_floor import audit
 from factory_floor.agent import run_diagnostic_agent, stream_diagnostic_agent
+from factory_floor.cache import SemanticCache
 from factory_floor.config import get_settings
 from factory_floor.cost import (
     PENDING_TURN_ESTIMATE_USD,
@@ -146,12 +147,59 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
     before consuming.
 
     Phase 3 wraps the agent call with a cost-tracking callback and a pre-flight daily
-    spend cap. Phases 4-6 wrap this further.
+    spend cap; phase 4 with the safety gate; phase 5 with the audit record; phase 6
+    with an optional semantic cache checked before all of it.
     """
     settings = get_settings()
     accumulator = UsageAccumulator()
     callback = CostTrackingCallback(accumulator, default_model=settings.llm_model)
     ledger = DailyLedger()  # -> the audit SQLite cost_events table (phase 5)
+
+    # Only first-turn, no-photo questions are cacheable. The cache reuses the main
+    # store's embedding function so a fake-embedding test store keeps the cache offline.
+    cache_eligible = (
+        settings.semantic_cache_enabled and not req.chat_history and req.vision_context is None
+    )
+    _cache_embeddings = getattr(vectorstore, "embeddings", None) or getattr(
+        vectorstore, "_embedding_function", None
+    )
+
+    def _cache() -> SemanticCache:
+        return SemanticCache(embeddings=_cache_embeddings)
+
+    scope = dict(
+        machine_id=req.machine_id,
+        equipment_type=req.equipment_type,
+        language=req.language,
+        tenant_id=req.tenant_id,
+    )
+
+    def _finalize_hit(hit) -> DiagnosticResult:
+        result = DiagnosticResult(
+            question=req.question_text,
+            answer=hit.answer,
+            documents=hit.documents,
+            sources=hit.sources,
+            tool_trace=hit.tool_trace,
+            run_id=hit.run_id,
+            language=req.language,
+            cost=UsageAccumulator().as_dict(),
+            safety={"action": "pass", "reason": "served from semantic cache", "cache_hit": True},
+            cache_hit=True,
+        )
+        if settings.audit_enabled:
+            result.audit_id = audit.record_recommendation(result, req)
+        return result
+
+    if cache_eligible:
+        hit = _cache().lookup(req.question_text, **scope)
+        if hit is not None:
+            result = _finalize_hit(hit)
+            if stream:
+                def _one():
+                    yield result.answer or ""
+                return _one(), result
+            return result
 
     if settings.daily_spend_cap_usd is not None:
         try:
@@ -185,6 +233,8 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
             result.audit_id = audit.record_recommendation(result, req)
         elif accumulator.n_calls:
             ledger.record(tenant_id=req.tenant_id, usage=accumulator)
+        if cache_eligible and not result.blocked:
+            _cache().store(req.question_text, result, **scope)
 
     if stream:
         generator, streamed = stream_diagnostic_agent(
@@ -265,6 +315,7 @@ def assemble_turn(result: DiagnosticResult, *, image_bytes: bytes | None,
         "tool_trace": result.tool_trace,
         "safety": result.safety,
         "audit_id": result.audit_id,
+        "cache_hit": result.cache_hit,
         "image_bytes": image_bytes,
         "vision_context": vision_context,
         "predicted_label": classification["predicted_label"] if classification else None,

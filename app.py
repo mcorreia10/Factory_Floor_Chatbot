@@ -5,6 +5,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from factory_floor import audit, identity, services
+from factory_floor.cache import SemanticCache
 from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR, get_settings
 from factory_floor.cost import DailyLedger, UsageAccumulator
 from factory_floor.machines import append_resolution_event, get_machine_history, load_machines
@@ -129,6 +130,16 @@ with st.sidebar:
             text=f"Today: ${_spent_today:.2f} / ${_cap:.2f} daily cap",
         )
 
+    if get_settings().semantic_cache_enabled:
+        try:
+            _cache_n = SemanticCache().count()
+        except Exception:
+            _cache_n = 0
+        st.caption(f"⚡ Answer cache: {_cache_n} entries")
+        if st.button("Clear answer cache", use_container_width=True):
+            SemanticCache().clear()
+            st.rerun()
+
 
 @st.cache_data(show_spinner=False)
 def cached_page_pdf(source_file, page_number):
@@ -184,6 +195,8 @@ def render_turn(turn, turn_index):
                 st.success("Photo condition: **good** — no defect detected")
 
     st.subheader("Diagnostic reasoning")
+    if turn.get("cache_hit"):
+        st.caption("⚡ Answered from the cache — an equivalent question was asked before.")
     st.markdown(turn["answer"])
 
     safety = turn.get("safety") or {}

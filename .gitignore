@@ -18,6 +18,7 @@ data/audit.sqlite3
 data/audit.sqlite3-wal
 data/audit.sqlite3-shm
 data/cmms_outbox.jsonl
+data/qa_cache/
 
 # Generated data (regenerate via download_manuals.py + notebooks 01-02)
 data/manuals/
