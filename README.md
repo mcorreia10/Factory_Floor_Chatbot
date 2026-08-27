@@ -452,6 +452,8 @@ factory_floor_milestone/
 │   ├── tracing.py        # LangSmith project override + trace_config()/run_url() helpers
 │   ├── safety.py         # Safety Validator — post-hoc audit + live blocking gate (enforce_safety)
 │   └── evaluation.py     # eval_scenarios.csv loader + scoring + agent-vs-baseline pipeline runner
+├── api/                  # minimal FastAPI proof (phase 8) — /health, POST /diagnose over services.py
+├── Dockerfile            # container for the API proof (data/ mounted at runtime)
 ├── tests/                # pytest suite (unit + integration); see pyproject.toml, Makefile
 ├── data/
 │   ├── manuals/

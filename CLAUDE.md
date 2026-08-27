@@ -234,6 +234,28 @@ Automated tests now exist alongside the manual convention below (they do not rep
   (two collections in one persist dir; retrieval scoped to one never returns the other's
   docs).
 
+### FastAPI proof + Dockerfile (phase 8 — minimal)
+
+- `api/main.py` — `GET /health`, `POST /diagnose` (blocking, via `services.run_diagnostic`).
+  The vector store and model are FastAPI `Depends` (`get_vectorstore`, `get_llm`) so
+  `tests/integration/test_api.py` overrides them with a fake-embedding store + fake model.
+  `load_dotenv()` at the top for local dev (no-op in a real deployment where the runtime
+  injects the key).
+- `Dockerfile` — python:3.13-slim, `uvicorn api.main:app`. `data/` (manuals + vector
+  store) is **not** baked in — mount it at runtime. **Not built** in this session
+  (docker not available on the box); the image is the design artifact.
+- `requirements.txt` gained `fastapi` + `uvicorn[standard]` (clearly marked optional —
+  not needed for the Streamlit app or notebooks); `requirements-dev.txt` gained `httpx`.
+- `docs/backend_architecture.md` — the full intended surface (SSE `/diagnose/stream`,
+  `/resolutions`, `/audit`, `/auth/login`), the LB / stateless-replica / SQLite→Postgres
+  / Redis-cache deployment shape, and what the proof deliberately omits.
+- Verified live: `uvicorn api.main:app` boots; `GET /health` -> `{"status":"ok",...}`;
+  a real `POST /diagnose` returned a grounded answer + 5 sources + tool_trace + run_id +
+  cost_usd + audit_id, 200 OK ($0.0016).
+- **Note:** `api.main` imports `factory_floor` before `load_dotenv()`, so it does the
+  same `get_settings.cache_clear()` dance as `app.py`. uvicorn cold start is ~20s here
+  because `langchain_openai` pulls in transformers+torch.
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in

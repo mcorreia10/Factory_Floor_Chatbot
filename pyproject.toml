@@ -19,6 +19,8 @@ filterwarnings = [
     # Noise from transformers/torch/SWIG being dragged in transitively by langchain_openai.
     "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
     "ignore:`torch.jit.script_method` is deprecated:DeprecationWarning",
+    # starlette's own TestClient shim; nothing we control.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
 ]
 
 [tool.ruff]
