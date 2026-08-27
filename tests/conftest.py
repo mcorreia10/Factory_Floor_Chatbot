@@ -18,11 +18,16 @@ import sys
 from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
 TESTS_ROOT = Path(__file__).parent
+
+# Load .env so `-m llm` tests find OPENAI_API_KEY. Harmless for unit tests — the
+# _no_network guard still blocks real client construction.
+load_dotenv(TESTS_ROOT.parent / ".env")
 
 
 def pytest_collection_modifyitems(config, items):
