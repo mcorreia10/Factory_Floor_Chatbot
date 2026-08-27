@@ -93,6 +93,33 @@ Automated tests now exist alongside the manual convention below (they do not rep
 - **Full nbconvert sweep + Playwright are the phase-boundary check** (real API cost) —
   run before pushing / merging, not per commit.
 
+### Cost control (phase 3 — done)
+
+- `factory_floor/cost.py`: `count_tokens` (tiktoken, `o200k_base` fallback),
+  `MODEL_PRICING` (USD/1M tokens, dated 2026-08), `estimate_cost`, `UsageAccumulator`
+  (per-session, `as_dict`/`from_dict`/`merge`), `CostTrackingCallback`
+  (`BaseCallbackHandler`), `DailyLedger` (append-only JSONL, folds into SQLite in
+  phase 5), `check_spend_cap` / `SpendCapExceeded`.
+- `services.run_diagnostic` now: pre-flight `check_spend_cap` against the day's ledger
+  total + a conservative `PENDING_TURN_ESTIMATE_USD` (0.05); on `SpendCapExceeded`
+  returns a `blocked=True` result (streaming: `(empty_generator, result)`). Otherwise
+  attaches `CostTrackingCallback` via `config={"callbacks": [cb]}` on the agent call
+  (propagates to the reranker sub-call too), then writes a ledger row and sets
+  `result.cost`. Streaming finalises cost only after the generator is consumed.
+- `rag.get_llm()` now sets `stream_usage=True` on `ChatOpenAI` so streamed agent runs
+  report `usage_metadata`. **VERIFY in the Playwright/nbconvert boundary check:** the
+  usage-bearing final chunk has empty `content`, so `stream_diagnostic_agent`'s
+  `message_chunk.content` filter should drop it — confirm no stray usage/JSON text
+  streams to the operator and notebook 07/12 output is unchanged. If it misbehaves,
+  drop `stream_usage=True` and rely on the callback's tiktoken fallback for streamed
+  runs (input under-counted).
+- `app.py`: sidebar shows "Session LLM cost: $x · N calls" and, when a cap is set, a
+  today-vs-cap progress bar; a blocked turn shows `st.error(result.message)` and is not
+  appended. Session total lives in `st.session_state["usage"]` (merged each turn).
+- Off by default: no `FACTORY_FLOOR_DAILY_SPEND_CAP_USD` -> cap check is a no-op; the
+  only effect is `result.cost` / the sidebar line being populated. Ledger at
+  `data/cost_ledger.jsonl` (gitignored).
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from factory_floor import services
 from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR, get_settings
+from factory_floor.cost import DailyLedger, UsageAccumulator
 from factory_floor.machines import get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
 from factory_floor.rag import get_llm
@@ -89,6 +90,17 @@ with st.sidebar:
         st.caption("Searches across all manuals — no equipment_type filter, no per-machine history.")
     else:
         st.caption(f"{selected_machine['model']} · installed {selected_machine['install_date']}")
+
+    _session_usage = UsageAccumulator.from_dict(st.session_state.get("usage"))
+    if _session_usage.n_calls:
+        st.caption(f"Session LLM cost: ${_session_usage.total_usd:.4f} · {_session_usage.n_calls} calls")
+    _cap = get_settings().daily_spend_cap_usd
+    if _cap:
+        _spent_today = DailyLedger(get_settings().cost_ledger_path).today_total(get_settings().tenant_id)
+        st.progress(
+            min(_spent_today / _cap, 1.0) if _cap else 0.0,
+            text=f"Today: ${_spent_today:.2f} / ${_cap:.2f} daily cap",
+        )
 
 
 @st.cache_data(show_spinner=False)
@@ -236,6 +248,10 @@ def submit_turn(question_text, uploaded_photo):
 
     generator, result = services.run_diagnostic(request, vectorstore=vectorstore, llm=llm, stream=True)
 
+    if result.blocked:
+        st.error(result.message)
+        return
+
     with st.spinner("Reasoning about the evidence..."):
         first_chunk = next(generator, None)
 
@@ -251,6 +267,12 @@ def submit_turn(question_text, uploaded_photo):
         language=answer_language,
     )
     st.session_state["turns"].append(turn)
+
+    if result.cost:
+        session_usage = UsageAccumulator.from_dict(st.session_state.get("usage"))
+        session_usage.merge(result.cost)
+        st.session_state["usage"] = session_usage.as_dict()
+
     st.session_state["followup_key"] = st.session_state.get("followup_key", 0) + 1
     st.rerun()
 

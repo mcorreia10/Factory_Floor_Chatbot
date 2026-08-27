@@ -442,6 +442,7 @@ factory_floor_milestone/
 │   ├── manuals.py        # per-page PDF extraction for the "download this page" feature
 │   ├── agent.py          # Diagnostic Agent — tools, safety-first rule, tracing config, run_diagnostic_agent()
 │   ├── services.py       # application service layer — a diagnostic turn as plain functions (no Streamlit)
+│   ├── cost.py           # token metering callback, per-session usage, daily ledger + spend cap
 │   ├── vision.py         # defect classification (trained + zero-shot), recommend_actions(), evaluate_classifier()
 │   ├── defect_dataset.py # MVTec AD subset scan + stratified manifest
 │   ├── tracing.py        # LangSmith project override + trace_config()/run_url() helpers

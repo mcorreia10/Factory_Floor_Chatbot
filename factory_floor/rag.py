@@ -56,6 +56,10 @@ def get_llm(model=None, temperature=None, callbacks=None):
     kwargs = {
         "model": model or settings.llm_model,
         "temperature": settings.llm_temperature if temperature is None else temperature,
+        # Emit usage_metadata on the final streamed chunk too, so the cost callback
+        # (phase 3) can meter streamed agent runs. The chunk carrying it has empty
+        # content, so the agent's `message_chunk.content` stream filter drops it.
+        "stream_usage": True,
     }
     if callbacks is not None:
         kwargs["callbacks"] = callbacks

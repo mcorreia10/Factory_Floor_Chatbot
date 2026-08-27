@@ -60,7 +60,9 @@ class TestRunDiagnostic:
         assert result.answer == "Earth fault suspected."
         assert result.run_id == "run-123"
         assert result.cache_hit is False and result.blocked is False
-        assert result.cost is None and result.safety is None
+        assert result.safety is None
+        # cost is always a dict now (phase 3); the stubbed agent never invokes the callback.
+        assert result.cost["n_calls"] == 0
 
     def test_streaming_fills_the_result_only_after_the_generator_is_consumed(self, monkeypatch, fake_llm):
         class FakeStreamed:

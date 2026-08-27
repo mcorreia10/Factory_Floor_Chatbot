@@ -97,6 +97,7 @@ class Settings:
     # Cost control (phase 3) — off unless a cap is set
     daily_spend_cap_usd: float | None = None
     cost_alert_threshold: float = 0.8
+    cost_ledger_path: Path = field(default_factory=lambda: PROJECT_ROOT / "data" / "cost_ledger.jsonl")
 
     # Safety gate (phase 4)
     safety_gate_mode: str = "rewrite"          # off | rewrite | block
@@ -129,6 +130,9 @@ class Settings:
             langsmith_project=_env_str("FACTORY_FLOOR_LANGSMITH_PROJECT", None),
             daily_spend_cap_usd=_env_opt_float("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", None),
             cost_alert_threshold=_env_float("FACTORY_FLOOR_COST_ALERT_THRESHOLD", 0.8),
+            cost_ledger_path=Path(
+                _env_str("FACTORY_FLOOR_COST_LEDGER_PATH", str(PROJECT_ROOT / "data" / "cost_ledger.jsonl"))
+            ),
             safety_gate_mode=_env_str("FACTORY_FLOOR_SAFETY_GATE_MODE", "rewrite"),
             safety_gate_on_stream=_env_str("FACTORY_FLOOR_SAFETY_GATE_ON_STREAM", "buffer"),
             semantic_cache_enabled=_env_bool("FACTORY_FLOOR_SEMANTIC_CACHE_ENABLED", False),

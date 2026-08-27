@@ -16,6 +16,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from factory_floor.agent import run_diagnostic_agent, stream_diagnostic_agent
+from factory_floor.config import get_settings
+from factory_floor.cost import (
+    PENDING_TURN_ESTIMATE_USD,
+    CostTrackingCallback,
+    DailyLedger,
+    SpendCapExceeded,
+    UsageAccumulator,
+    check_spend_cap,
+)
 from factory_floor.fault_codes import extract_possible_codes
 from factory_floor.rag import build_chat_history, build_retriever, get_llm
 from factory_floor.vision import classify_defect_trained
@@ -110,20 +119,60 @@ def build_diagnostic_retriever(vectorstore, equipment_type: str, llm, *, k: int 
     )
 
 
+def _blocked_result(req: DiagnosticRequest, message: str) -> DiagnosticResult:
+    return DiagnosticResult(
+        question=req.question_text,
+        answer=None,
+        documents=[],
+        sources=None,
+        tool_trace=None,
+        run_id=None,
+        language=req.language,
+        blocked=True,
+        message=message,
+    )
+
+
 def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: bool = False):
     """Run one diagnostic turn.
 
     ``stream=False`` -> returns a finished ``DiagnosticResult``.
     ``stream=True``  -> returns ``(generator, DiagnosticResult)``; the result's answer/
-    documents/sources/tool_trace stay ``None``/empty until the caller exhausts the
-    generator (mirrors ``agent.stream_diagnostic_agent``).
+    documents/sources/tool_trace/cost stay ``None``/empty until the caller exhausts the
+    generator. A turn blocked by the spend cap still returns ``(empty_generator,
+    result)`` in streaming mode, with ``result.blocked`` set — the caller checks that
+    before consuming.
 
-    Phase 2 is a thin pass-through to ``factory_floor.agent``; phases 3-6 wrap this.
+    Phase 3 wraps the agent call with a cost-tracking callback and a pre-flight daily
+    spend cap. Phases 4-6 wrap this further.
     """
+    settings = get_settings()
+    accumulator = UsageAccumulator()
+    callback = CostTrackingCallback(accumulator, default_model=settings.llm_model)
+    ledger = DailyLedger(settings.cost_ledger_path)
+
+    if settings.daily_spend_cap_usd is not None:
+        try:
+            check_spend_cap(
+                ledger.today_total(req.tenant_id),
+                cap=settings.daily_spend_cap_usd,
+                pending_estimate=PENDING_TURN_ESTIMATE_USD,
+                alert_threshold=settings.cost_alert_threshold,
+            )
+        except SpendCapExceeded as exc:
+            blocked = _blocked_result(req, str(exc))
+            return (iter(()), blocked) if stream else blocked
+
     llm = llm or get_llm()
     retriever = build_diagnostic_retriever(
         vectorstore, req.equipment_type, llm, tenant_id=req.tenant_id
     )
+    agent_config = {"callbacks": [callback]}
+
+    def _finalize(result: DiagnosticResult) -> None:
+        result.cost = accumulator.as_dict()
+        if accumulator.n_calls:
+            ledger.record(tenant_id=req.tenant_id, usage=accumulator)
 
     if stream:
         generator, streamed = stream_diagnostic_agent(
@@ -134,6 +183,7 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
             vision_context=req.vision_context,
             llm=llm,
             language=req.language,
+            config=agent_config,
         )
         result = DiagnosticResult(
             question=req.question_text,
@@ -151,6 +201,7 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
             result.documents = streamed.documents
             result.sources = streamed.sources
             result.tool_trace = streamed.tool_trace
+            _finalize(result)
 
         return _wrapped(), result
 
@@ -162,8 +213,9 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
         vision_context=req.vision_context,
         llm=llm,
         language=req.language,
+        config=agent_config,
     )
-    return DiagnosticResult(
+    result = DiagnosticResult(
         question=raw["question"],
         answer=raw["answer"],
         documents=raw["documents"],
@@ -172,6 +224,8 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
         run_id=raw["run_id"],
         language=raw["language"],
     )
+    _finalize(result)
+    return result
 
 
 def assemble_turn(result: DiagnosticResult, *, image_bytes: bytes | None,
