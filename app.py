@@ -1,19 +1,17 @@
-import io
 import itertools
 from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
-from factory_floor.agent import stream_diagnostic_agent
+from factory_floor import services
 from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR, get_settings
-from factory_floor.fault_codes import extract_possible_codes
 from factory_floor.machines import get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
-from factory_floor.rag import build_chat_history, build_retriever, get_llm
+from factory_floor.rag import get_llm
 from factory_floor.secrets import get_secret
 from factory_floor.vectorstore import get_embeddings, load_vectorstore
-from factory_floor.vision import CLASSIFIER_PATH, classify_defect_trained, load_classifier
+from factory_floor.vision import CLASSIFIER_PATH, load_classifier
 
 load_dotenv()
 # factory_floor is imported above (which snapshots Settings) before load_dotenv() runs,
@@ -130,8 +128,6 @@ def describe_tool_call(entry):
     return f"🔧 Called {entry['tool']}({entry['input']})"
 
 
-TOP_K = 5
-
 st.session_state.setdefault("turns", [])
 
 
@@ -198,7 +194,7 @@ def submit_turn(question_text, uploaded_photo):
     # can tell them apart — so ask, rather than silently correcting and answering about a
     # code they never asked about. Runs before any API call is made.
     if not st.session_state.pop("code_typo_confirmed", False):
-        typos = extract_possible_codes(question_text)
+        typos = services.check_typo(question_text)
         if typos:
             as_typed, suggestion = typos[0]
             st.session_state["pending_typo"] = {
@@ -219,34 +215,26 @@ def submit_turn(question_text, uploaded_photo):
         clf, _label_list = vision_components
         image_bytes = uploaded_photo.getvalue()
         with st.spinner("Looking at the photo..."):
-            classification = classify_defect_trained(io.BytesIO(image_bytes), clf)
-        vision_context = (
-            f"Vision analysis of the uploaded photo: predicted condition = "
-            f"{classification['predicted_label']} (confidence {classification['confidence']:.0%}, "
-            f"{'defective' if classification['is_defective'] else 'no defect detected'})."
-        )
+            photo = services.classify_photo(image_bytes, clf)
+        classification = photo["classification"]
+        vision_context = photo["vision_context"]
 
-    retriever = build_retriever(
-        vectorstore, k=TOP_K, equipment_type=st.session_state["selected_machine"]["equipment_type"],
-        rerank=True, rerank_llm=llm, code_aware=True,
+    selected_machine = st.session_state["selected_machine"]
+    request = services.DiagnosticRequest(
+        question_text=question_text,
+        machine_id=selected_machine["machine_id"],
+        equipment_type=selected_machine["equipment_type"],
+        chat_history=services.build_chat_history(st.session_state["turns"]),
+        vision_context=vision_context,
+        language=answer_language,
     )
-    chat_history = build_chat_history(st.session_state["turns"])
-    machine_id = st.session_state["selected_machine"]["machine_id"]
 
     st.markdown(
         f"**Q{len(st.session_state['turns']) + 1}.** "
         f"{question_text or '[Uploaded a photo of a component]'}"
     )
 
-    generator, streamed = stream_diagnostic_agent(
-        question_text,
-        retriever,
-        machine_id,
-        chat_history=chat_history,
-        vision_context=vision_context,
-        llm=llm,
-        language=answer_language,
-    )
+    generator, result = services.run_diagnostic(request, vectorstore=vectorstore, llm=llm, stream=True)
 
     with st.spinner("Reasoning about the evidence..."):
         first_chunk = next(generator, None)
@@ -255,19 +243,13 @@ def submit_turn(question_text, uploaded_photo):
     if first_chunk is not None:
         st.write_stream(itertools.chain([first_chunk], generator))
 
-    turn = {
-        "type": "agent",
-        "question": question_text or "[Uploaded a photo of a component]",
-        "answer": streamed.answer,
-        "documents": streamed.documents,
-        "sources": streamed.sources,
-        "tool_trace": streamed.tool_trace,
-        "image_bytes": image_bytes,
-        "vision_context": vision_context,
-        "predicted_label": classification["predicted_label"] if classification else None,
-        "is_defective": classification["is_defective"] if classification else None,
-        "language": answer_language,
-    }
+    turn = services.assemble_turn(
+        result,
+        image_bytes=image_bytes,
+        classification=classification,
+        vision_context=vision_context,
+        language=answer_language,
+    )
     st.session_state["turns"].append(turn)
     st.session_state["followup_key"] = st.session_state.get("followup_key", 0) + 1
     st.rerun()

@@ -433,18 +433,21 @@ factory_floor_milestone/
 ├── CLAUDE.md
 ├── dificuldades_e_oportunidades.md
 ├── factory_floor/
-│   ├── config.py         # shared paths / collection name
+│   ├── config.py         # shared paths / collection name + typed Settings object
+│   ├── secrets.py        # get_secret() — the seam a managed vault plugs into
 │   ├── ingestion.py      # PDF loading + metadata tagging (equipment_type read from manual_sources.csv)
 │   ├── vectorstore.py    # chunking, embeddings, Chroma build/load
 │   ├── rag.py            # prompt, retriever, ask(), history-aware query reformulation, @traceable
 │   ├── machines.py       # machine registry + per-machine maintenance history lookup
 │   ├── manuals.py        # per-page PDF extraction for the "download this page" feature
 │   ├── agent.py          # Diagnostic Agent — tools, safety-first rule, tracing config, run_diagnostic_agent()
+│   ├── services.py       # application service layer — a diagnostic turn as plain functions (no Streamlit)
 │   ├── vision.py         # defect classification (trained + zero-shot), recommend_actions(), evaluate_classifier()
 │   ├── defect_dataset.py # MVTec AD subset scan + stratified manifest
 │   ├── tracing.py        # LangSmith project override + trace_config()/run_url() helpers
 │   ├── safety.py         # Safety Validator — LLM-judge + keyword audit of safety-first ordering
 │   └── evaluation.py     # eval_scenarios.csv loader + scoring + agent-vs-baseline pipeline runner
+├── tests/                # pytest suite (unit + integration); see pyproject.toml, Makefile
 ├── data/
 │   ├── manuals/
 │   ├── defect_images/
@@ -459,10 +462,12 @@ factory_floor_milestone/
     ├── 07_orchestrator_agent.ipynb
     ├── 08_tracing_observability.ipynb
     ├── 09_safety_validator.ipynb
-    └── 10_evaluation_baseline.ipynb
+    ├── 10_evaluation_baseline.ipynb
+    ├── 11_retrieval_benchmark.ipynb
+    └── 12_service_layer.ipynb
 ```
 
-The notebooks and `app.py` both import their pipeline logic from `factory_floor/` — the notebooks stay for step-by-step exploration/demo, but no logic is duplicated between them and the Streamlit app.
+The notebooks and `app.py` both import their pipeline logic from `factory_floor/` — the notebooks stay for step-by-step exploration/demo, but no logic is duplicated between them and the Streamlit app. Since the professionalization work, `app.py` is a thin Streamlit view over `factory_floor/services.py`: it reads widgets and session state, calls `services.run_diagnostic(...)`, and renders the result.
 
 ## Setup
 

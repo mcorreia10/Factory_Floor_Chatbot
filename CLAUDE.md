@@ -57,6 +57,42 @@ Automated tests now exist alongside the manual convention below (they do not rep
   `select = ["E4","E7","E9","F"]`, source only, notebooks excluded). `requirements-dev.txt`.
   CI: `.github/workflows/ci.yml` (ruff + `pytest -m "not llm"` on py3.12/3.13, no key).
 
+### Settings + secrets (phase 1 — done)
+
+- `factory_floor/config.py` gained a frozen `Settings` dataclass + `get_settings()`
+  (`@lru_cache`). Every field defaults to today's behaviour; `FACTORY_FLOOR_*` env vars
+  override. `.env` untouched; new knobs documented in `.env.example` only.
+- **Cache trap:** `get_settings()` is lru_cached and is first called during
+  `configure_tracing()` at package import — which in `app.py`'s flow is *before*
+  `load_dotenv()`. `app.py` therefore calls `get_settings.cache_clear()` right after
+  `load_dotenv()`. Notebooks load `.env` first, so they're fine. Tests clear it via an
+  autouse fixture.
+- `factory_floor/secrets.py::get_secret()` — default `env` backend == `os.getenv`
+  (current behaviour). `aws`/`vault`/`doppler`/`sops` are `NotImplementedError` seams;
+  `docs/secrets.md` has the deploy-time flow.
+
+### Service layer (phase 2 — done)
+
+- `factory_floor/services.py` — a diagnostic turn as plain functions, zero Streamlit:
+  `DiagnosticRequest`/`DiagnosticResult` dataclasses, `check_typo`, `classify_photo`,
+  `build_diagnostic_retriever`, `run_diagnostic` (blocking + streaming), `assemble_turn`.
+- `app.py::submit_turn` is now: read widgets/session -> build `DiagnosticRequest` ->
+  `services.run_diagnostic(..., stream=True)` -> `st.write_stream` -> `services.assemble_turn`.
+  The 3 `@st.cache_*` resource loaders stay in `app.py`.
+- **`run_diagnostic` is the hook point for phases 3-6** (cost, safety gate, audit, cache).
+  In phase 2 it is a thin pass-through to `factory_floor.agent`.
+- **Streaming contract:** `run_diagnostic(stream=True)` returns `(generator, result)`;
+  `result.answer`/`documents`/`sources`/`tool_trace` stay empty until the caller fully
+  consumes the generator (the wrapper copies them from the `StreamedAgentRun` at the end).
+- **Test gotcha:** `create_agent` calls `model.bind_tools()` on every step, which
+  `GenericFakeChatModel` doesn't implement. `conftest.py::make_agent_fake_llm` subclasses
+  it with `bind_tools -> self` so integration tests drive the real `create_agent` graph
+  (no tool calls) without an API key.
+- **Not done here (still deferred):** the `use_container_width=True` -> `width="stretch"`
+  deprecation (now ~9 call sites in `app.py`) — cosmetic, needs a live render to verify.
+- **Full nbconvert sweep + Playwright are the phase-boundary check** (real API cost) —
+  run before pushing / merging, not per commit.
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in

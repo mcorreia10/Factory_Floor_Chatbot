@@ -101,6 +101,30 @@ def fake_llm(make_fake_llm):
 
 
 @pytest.fixture
+def make_agent_fake_llm():
+    """Like make_fake_llm, but usable as the model inside `langchain.agents.create_agent`.
+
+    create_agent calls `model.bind_tools(...)` on every step; GenericFakeChatModel does
+    not implement it. This subclass returns itself from bind_tools (tools ignored) and
+    never emits tool_calls, so the agent graph runs to completion on the canned reply —
+    exercising the real create_agent wiring without a real model."""
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+
+    class _AgentFakeChat(GenericFakeChatModel):
+        def bind_tools(self, tools, **kwargs):
+            return self
+
+    def _make(*responses):
+        msgs = [AIMessage(content=r) if isinstance(r, str) else r for r in responses] or [
+            AIMessage(content="Direct answer, no tools used.")
+        ]
+        stream = itertools.chain(msgs[:-1], itertools.repeat(msgs[-1]))
+        return _AgentFakeChat(messages=stream)
+
+    return _make
+
+
+@pytest.fixture
 def make_structured_llm():
     """Factory for a fake model that supports `.with_structured_output(Schema)`.
     Pass the object(s) `.invoke()` should return in order (the last repeats)."""
