@@ -6,6 +6,20 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+# Test / lint tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime state (professionalization work)
+data/cost_ledger.jsonl
+data/audit.sqlite3
+data/audit.sqlite3-wal
+data/audit.sqlite3-shm
+data/cmms_outbox.jsonl
+data/qa_cache/
+
 # Generated data (regenerate via download_manuals.py + notebooks 01-02)
 data/manuals/
 data/vectorstore/

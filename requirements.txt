@@ -33,3 +33,8 @@ langsmith>=0.11.0,<1.0
 # Already used by vision.py's structured-output models and now also by safety.py, but never
 # declared — was only ever present transitively via langchain-core.
 pydantic>=2.7
+
+# Optional API backend (api/main.py, phase 8). Not needed to run the Streamlit app or
+# the notebooks — install only if serving the FastAPI proof.
+fastapi>=0.115
+uvicorn[standard]>=0.30

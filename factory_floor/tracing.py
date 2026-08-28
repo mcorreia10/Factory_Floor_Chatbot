@@ -23,9 +23,14 @@ def configure_tracing(project_name: str = None) -> str:
     and get_tracer_project() are functools.lru_cache'd, so a plain os.environ change
     made after the first traced call is silently ignored without this.
     """
+    # Lazy import: this module is loaded from factory_floor/__init__.py before anything
+    # else, so keep the top level dependency-free.
+    from factory_floor.config import get_settings
+
     project = (
         project_name
         or os.environ.get("FACTORY_FLOOR_LANGSMITH_PROJECT")
+        or get_settings().langsmith_project
         or DEFAULT_PROJECT
     )
     os.environ["LANGSMITH_PROJECT"] = project

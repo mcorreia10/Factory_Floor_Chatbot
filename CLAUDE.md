@@ -20,6 +20,242 @@ the 3-page project document — see `dificuldades_e_oportunidades.md`. The histo
 (2026-08-18 through 2026-08-19) is kept for context on how earlier milestones were
 built; don't re-derive it from scratch.
 
+## 2026-08-27 — Professionalization work started (branch `professionalization`)
+
+A multi-phase "production-readiness" effort is underway on a dedicated branch
+`professionalization`, to be merged back to `master` with a single `--no-ff` merge only
+when the whole thing is green. The plan lives at
+`~/.claude/plans/como-podemos-planear-ent-o-effervescent-cocoa.md`. Phases: 0 test
+harness + CI · 1 Settings object + secrets seam · 2 service layer (`services.py`) ·
+3 cost control · 4 blocking safety gate · 5 audit trail + operator identity + writable
+history · 6 semantic cache · 7 multi-tenant (design-only + seams) · 8 minimal FastAPI +
+Dockerfile. Every new behaviour is **opt-in / off by default** — a fresh clone with only
+`OPENAI_API_KEY` must behave exactly as before. `.env` stays untouched (existing owner
+decision); new knobs are `FACTORY_FLOOR_*` env vars, documented in `.env.example` only.
+
+### Testing (phase 0 — done)
+
+Automated tests now exist alongside the manual convention below (they do not replace the
+`nbconvert` sweep + live Playwright smoke, which still run at each phase boundary).
+
+- **Env:** the project runs on the conda `base` env (`/opt/miniconda3/bin/python`,
+  Python 3.13) — *not* the Framework `python3` 3.14 on PATH, which only has a partial
+  install. Run tests with `/opt/miniconda3/bin/python -m pytest` or
+  `make test PYTHON=/opt/miniconda3/bin/python`.
+- **Layout:** `tests/unit/` (fast, no network — the default) and `tests/integration/`
+  (build a tiny real Chroma store with `DeterministicFakeEmbedding`, no API key).
+  Markers `unit` / `integration` are auto-applied by directory (see `tests/conftest.py`).
+  `llm`-marked tests need a real key and are skipped in CI / by `make test`.
+- **Fake models:** every `factory_floor` entry point takes `llm=` — `conftest.py` has
+  `make_fake_llm` (a `GenericFakeChatModel`) and `make_structured_llm` (supports
+  `.with_structured_output()`, which `GenericFakeChatModel` does not).
+- **`langchain_openai` imports slowly here (~6–19 s)** because it transitively pulls in
+  `transformers` + `torch`. The `_no_network` autouse guard therefore does *not* import
+  anything — it patches only already-imported modules — so a pure-logic test file stays
+  fast. First test that touches `factory_floor.rag`/`.agent` pays the import cost once.
+- **Config:** `pyproject.toml` (`[tool.pytest.ini_options]`, `[tool.ruff]` — minimal
+  `select = ["E4","E7","E9","F"]`, source only, notebooks excluded). `requirements-dev.txt`.
+  CI: `.github/workflows/ci.yml` (ruff + `pytest -m "not llm"` on py3.12/3.13, no key).
+
+### Settings + secrets (phase 1 — done)
+
+- `factory_floor/config.py` gained a frozen `Settings` dataclass + `get_settings()`
+  (`@lru_cache`). Every field defaults to today's behaviour; `FACTORY_FLOOR_*` env vars
+  override. `.env` untouched; new knobs documented in `.env.example` only.
+- **Cache trap:** `get_settings()` is lru_cached and is first called during
+  `configure_tracing()` at package import — which in `app.py`'s flow is *before*
+  `load_dotenv()`. `app.py` therefore calls `get_settings.cache_clear()` right after
+  `load_dotenv()`. Notebooks load `.env` first, so they're fine. Tests clear it via an
+  autouse fixture.
+- `factory_floor/secrets.py::get_secret()` — default `env` backend == `os.getenv`
+  (current behaviour). `aws`/`vault`/`doppler`/`sops` are `NotImplementedError` seams;
+  `docs/secrets.md` has the deploy-time flow.
+
+### Service layer (phase 2 — done)
+
+- `factory_floor/services.py` — a diagnostic turn as plain functions, zero Streamlit:
+  `DiagnosticRequest`/`DiagnosticResult` dataclasses, `check_typo`, `classify_photo`,
+  `build_diagnostic_retriever`, `run_diagnostic` (blocking + streaming), `assemble_turn`.
+- `app.py::submit_turn` is now: read widgets/session -> build `DiagnosticRequest` ->
+  `services.run_diagnostic(..., stream=True)` -> `st.write_stream` -> `services.assemble_turn`.
+  The 3 `@st.cache_*` resource loaders stay in `app.py`.
+- **`run_diagnostic` is the hook point for phases 3-6** (cost, safety gate, audit, cache).
+  In phase 2 it is a thin pass-through to `factory_floor.agent`.
+- **Streaming contract:** `run_diagnostic(stream=True)` returns `(generator, result)`;
+  `result.answer`/`documents`/`sources`/`tool_trace` stay empty until the caller fully
+  consumes the generator (the wrapper copies them from the `StreamedAgentRun` at the end).
+- **Test gotcha:** `create_agent` calls `model.bind_tools()` on every step, which
+  `GenericFakeChatModel` doesn't implement. `conftest.py::make_agent_fake_llm` subclasses
+  it with `bind_tools -> self` so integration tests drive the real `create_agent` graph
+  (no tool calls) without an API key.
+- **Not done here (still deferred):** the `use_container_width=True` -> `width="stretch"`
+  deprecation (now ~9 call sites in `app.py`) — cosmetic, needs a live render to verify.
+- **Full nbconvert sweep + Playwright are the phase-boundary check** (real API cost) —
+  run before pushing / merging, not per commit.
+
+### Cost control (phase 3 — done)
+
+- `factory_floor/cost.py`: `count_tokens` (tiktoken, `o200k_base` fallback),
+  `MODEL_PRICING` (USD/1M tokens, dated 2026-08), `estimate_cost`, `UsageAccumulator`
+  (per-session, `as_dict`/`from_dict`/`merge`), `CostTrackingCallback`
+  (`BaseCallbackHandler`), `DailyLedger` (append-only JSONL, folds into SQLite in
+  phase 5), `check_spend_cap` / `SpendCapExceeded`.
+- `services.run_diagnostic` now: pre-flight `check_spend_cap` against the day's ledger
+  total + a conservative `PENDING_TURN_ESTIMATE_USD` (0.05); on `SpendCapExceeded`
+  returns a `blocked=True` result (streaming: `(empty_generator, result)`). Otherwise
+  attaches `CostTrackingCallback` via `config={"callbacks": [cb]}` on the agent call
+  (propagates to the reranker sub-call too), then writes a ledger row and sets
+  `result.cost`. Streaming finalises cost only after the generator is consumed.
+- `rag.get_llm()` now sets `stream_usage=True` on `ChatOpenAI` so streamed agent runs
+  report `usage_metadata`. **VERIFY in the Playwright/nbconvert boundary check:** the
+  usage-bearing final chunk has empty `content`, so `stream_diagnostic_agent`'s
+  `message_chunk.content` filter should drop it — confirm no stray usage/JSON text
+  streams to the operator and notebook 07/12 output is unchanged. If it misbehaves,
+  drop `stream_usage=True` and rely on the callback's tiktoken fallback for streamed
+  runs (input under-counted).
+- `app.py`: sidebar shows "Session LLM cost: $x · N calls" and, when a cap is set, a
+  today-vs-cap progress bar; a blocked turn shows `st.error(result.message)` and is not
+  appended. Session total lives in `st.session_state["usage"]` (merged each turn).
+- Off by default: no `FACTORY_FLOOR_DAILY_SPEND_CAP_USD` -> cap check is a no-op; the
+  only effect is `result.cost` / the sidebar line being populated. (Ledger storage moved
+  to the audit SQLite `cost_events` table in phase 5 — see below.)
+
+### Blocking safety gate (phase 4 — done)
+
+- `safety.py` gained (additive; the 3 audit functions for notebooks 09/10 are untouched):
+  `enforce_safety(answer, *, llm, mode, language)`, `SafetyGateResult` (`action` =
+  `pass` | `rewritten` | `held`), `SAFETY_REWRITE_SYSTEM_PROMPT`, `FIXED_HELD_FALLBACK`,
+  `_tokens_preserved` (a rewrite must keep every `[SOURCE n]` and fault code).
+- Logic: keyword check first; **no physical action -> pass, no LLM judge call** (cheap
+  path for clarifying questions / explanations). Otherwise run the judge; if it fails,
+  `mode="rewrite"` does one rewrite + re-check + citation-survival check (deliver if it
+  now passes and kept citations, else hold); `mode="block"` holds without rewriting.
+  Held answers are replaced with `FIXED_HELD_FALLBACK`.
+- `services.run_diagnostic` runs the gate on the finished answer; `result.answer` becomes
+  the gate's `delivered_answer`, `result.safety` = `SafetyGateResult.as_dict()`.
+  **Streaming:** with the gate active the raw tokens can change, so the stream is drained
+  silently and the gated text is emitted as one chunk (spinner-then-answer). With
+  `mode="off"` live token streaming is preserved. `safety_gate_on_stream` exists in
+  Settings but currently both values behave the same (Streamlit can't un-write a stream).
+- `app.py`: `held` -> `st.error` + the fallback text is what's shown; `rewritten` ->
+  `st.info`; `render_turn` shows a small badge. `turn["safety"]` carries the verdict.
+- Default `mode="rewrite"` — so the default experience now sometimes rewrites/holds an
+  answer. Set `FACTORY_FLOOR_SAFETY_GATE_MODE=off` for the exact pre-phase-4 behaviour.
+- **Test note:** `enforce_safety` needs a model that both judges (`with_structured_output`)
+  and rewrites (`invoke`) — `conftest.make_gate_llm`. `run_diagnostic`'s gate wiring is
+  integration-tested with `enforce_safety` monkeypatched (the agent fake can't do
+  structured output). Live behaviour: `tests/integration/test_safety_gate_live.py`
+  (`-m llm`).
+
+### Audit trail + operator identity + writable history (phase 5 — done)
+
+- `factory_floor/audit.py` — stdlib `sqlite3`, `PRAGMA journal_mode=WAL` (the answer to
+  the concurrent-write race in `dificuldades_e_oportunidades.md` #6). Tables:
+  `recommendations`, `recommendation_sources`, `tool_calls`, `cost_events`,
+  `resolution_events`. `record_recommendation(result, req)`, `get_audit_trail(...)`,
+  `append_resolution_event(...)`, `get_resolution_events(...)`, `export_to_cmms(...)`.
+- **The phase-3 JSONL cost ledger is gone** — `DailyLedger` now lives in `audit.py`
+  (backed by `cost_events`), re-exported from `cost.py` for existing imports.
+  `Settings.cost_ledger_path` / `FACTORY_FLOOR_COST_LEDGER_PATH` removed. When the audit
+  trail is enabled the cost row is written by `record_recommendation` (linked to the
+  recommendation); disabled -> `DailyLedger.record` writes a standalone row. The spend
+  cap reads `DailyLedger().today_total()` either way.
+- `factory_floor/identity.py` — `Operator`, `authenticate(operator_id, pin)`,
+  `list_operators()`, `hash_pin` (PBKDF2-SHA256, 100k rounds). Backed by committed
+  `operators.csv` (root, like `machines.csv`): 3 fake operators, **PINs 1234 / 5678 /
+  4321** — printed on purpose so the demo and tests can sign in; a real deployment gets
+  these rows from the plant's identity system.
+- `machines.py`: `get_machine_history(machine_id, include_resolutions=False)` — default
+  False keeps notebook 05 and the agent's history tool unchanged; True unions live
+  `resolution_events` (tagged `event_type="operator_resolution"`). The static CSV stays
+  read-only. New `machines.append_resolution_event(...)` delegates to `audit`.
+- `services.run_diagnostic._finalize`: if `settings.audit_enabled` (**default true**)
+  call `audit.record_recommendation` and set `result.audit_id`; the turn dict carries
+  `audit_id`.
+- `app.py`: optional sign-in gate (`FACTORY_FLOOR_REQUIRE_LOGIN`, default off); operator
+  chip + sign-out in the sidebar; a "Record what you actually did" expander per machine
+  with a "Save to machine history" + "Send to CMMS/ERP (demo)" pair; the history
+  expander now shows static + live rows.
+- **Deviation from plan:** the resolution-recording UI is one expander after the turns
+  (not per-turn) — Streamlit rerun/key management makes per-turn text areas + buttons
+  fiddly. It ties to the last turn's `audit_id`.
+- Paths: `FACTORY_FLOOR_AUDIT_DB_PATH` (default `data/audit.sqlite3`),
+  `FACTORY_FLOOR_CMMS_OUTBOX_PATH` (default `data/cmms_outbox.jsonl`) — both gitignored,
+  and pointed at tmp_path by `conftest._isolate_runtime_state` so tests never touch the
+  real files.
+
+### Semantic answer cache (phase 6 — done)
+
+- `factory_floor/cache.py::SemanticCache` — its own Chroma collection
+  `factory_floor_qa_cache` in `data/qa_cache/` (`hnsw:space=cosine`, so
+  `similarity = 1 - similarity_search_with_score` distance is a real 0-1 number — the
+  l2 relevance-fn trap from 2026-08-25 is avoided). Opt-in via
+  `FACTORY_FLOOR_SEMANTIC_CACHE_ENABLED`.
+- Scoped by machine / equipment_type / language / tenant. **Fault-code questions**
+  (`_code_signature` non-empty — catches `F3OO21` typos too via `extract_possible_codes`)
+  require an exact normalized-question match via a metadata `.get(where=...)` — no
+  embedding call, never a near-miss. Prose questions: cosine similarity >= threshold
+  (default 0.95). A code-free question is never served from a code-bearing entry.
+- `store()` only takes first-turn, no-photo questions whose safety action is `pass` or
+  `rewritten` (never `held`, never blocked). `version_stamp` (embedding model + main
+  collection name) + a TTL (720h) bound staleness; a manual-store rebuild should also
+  call `SemanticCache().clear()` (documented, not automatic).
+- `services.run_diagnostic`: cache lookup runs **before the spend-cap check** (a hit
+  costs nothing). A hit builds a `DiagnosticResult` with `cache_hit=True`, zero cost,
+  `safety={"action":"pass","reason":"served from semantic cache"}`, still writes an
+  audit row (flagged `cache_hit=1`), skips the agent + gate. Streaming: yields the
+  answer as one chunk. Miss -> normal path -> `store()` in `_finalize`. The cache reuses
+  the **main store's embedding function** (`vectorstore.embeddings`) so a fake-embedding
+  test store keeps the cache offline.
+- `app.py`: sidebar shows the cache size + a "Clear answer cache" button when enabled;
+  `render_turn` shows a "⚡ Answered from the cache" caption; `turn["cache_hit"]` persists it.
+- `FACTORY_FLOOR_SEMANTIC_CACHE_DIR` (default `data/qa_cache/`, gitignored) — pointed at
+  tmp_path by the conftest isolation fixture.
+
+### Multi-tenant (phase 7 — design-only + seams)
+
+- `factory_floor/tenancy.py`: `resolve_collection(tenant_id)` (`default`/None ->
+  `settings.collection_name`; else `"{base}__{sanitised}"`), `list_tenants()` /
+  `get_tenant()` off `tenants.csv` (root, committed, one `default` row).
+- `services.load_tenant_vectorstore(tenant_id)` uses it; `app.py::load_rag_components`
+  is now keyed on `tenant_id` (its `@st.cache_resource` key), read from
+  `operator["tenant_id"]` (default `"default"`). For `default` the resolved collection
+  name is byte-identical to before — nothing changes for the running app.
+- Most tenant seams were already threaded by earlier phases: `tenant_id` on
+  `DiagnosticRequest`, on the `recommendations`/`cost_events`/`resolution_events` tables,
+  in `SemanticCache`'s key, and on `operators.csv` rows; `DailyLedger.today_total` and
+  `get_audit_trail` filter on it.
+- **Deviation:** notebooks 01/02 were NOT edited to read a `TENANT_ID` env var
+  (re-running the ingestion notebooks risks the demo-critical `data/vectorstore/`). The
+  exact one-line change they need is written in `docs/multi_tenancy.md`.
+- The design + threat model is `docs/multi_tenancy.md`. Not built: tenant admin surface,
+  per-tenant ingestion pipeline, real auth carrying the tenant, physical DB separation.
+- Tests: `tests/unit/test_tenancy.py`, `tests/integration/test_tenant_isolation.py`
+  (two collections in one persist dir; retrieval scoped to one never returns the other's
+  docs).
+
+### FastAPI proof + Dockerfile (phase 8 — minimal)
+
+- `api/main.py` — `GET /health`, `POST /diagnose` (blocking, via `services.run_diagnostic`).
+  The vector store and model are FastAPI `Depends` (`get_vectorstore`, `get_llm`) so
+  `tests/integration/test_api.py` overrides them with a fake-embedding store + fake model.
+  `load_dotenv()` at the top for local dev (no-op in a real deployment where the runtime
+  injects the key).
+- `Dockerfile` — python:3.13-slim, `uvicorn api.main:app`. `data/` (manuals + vector
+  store) is **not** baked in — mount it at runtime. **Not built** in this session
+  (docker not available on the box); the image is the design artifact.
+- `requirements.txt` gained `fastapi` + `uvicorn[standard]` (clearly marked optional —
+  not needed for the Streamlit app or notebooks); `requirements-dev.txt` gained `httpx`.
+- `docs/backend_architecture.md` — the full intended surface (SSE `/diagnose/stream`,
+  `/resolutions`, `/audit`, `/auth/login`), the LB / stateless-replica / SQLite→Postgres
+  / Redis-cache deployment shape, and what the proof deliberately omits.
+- Verified live: `uvicorn api.main:app` boots; `GET /health` -> `{"status":"ok",...}`;
+  a real `POST /diagnose` returned a grounded answer + 5 sources + tool_trace + run_id +
+  cost_usd + audit_id, 200 OK ($0.0016).
+- **Note:** `api.main` imports `factory_floor` before `load_dotenv()`, so it does the
+  same `get_settings.cache_clear()` dance as `app.py`. uvicorn cold start is ~20s here
+  because `langchain_openai` pulls in transformers+torch.
+
 ## 2026-08-25 — Exact fault-code lookup (difficulty #1 closed)
 
 Non-obvious things worth keeping; the full write-up with numbers is in

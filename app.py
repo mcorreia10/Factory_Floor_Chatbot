@@ -1,21 +1,24 @@
-import io
 import itertools
-import os
 from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
-from factory_floor.agent import stream_diagnostic_agent
-from factory_floor.config import COLLECTION_NAME, MANUAL_DIR, VECTOR_DIR
-from factory_floor.fault_codes import extract_possible_codes
-from factory_floor.machines import get_machine_history, load_machines
+from factory_floor import audit, identity, services
+from factory_floor.cache import SemanticCache
+from factory_floor.config import MANUAL_DIR, VECTOR_DIR, get_settings
+from factory_floor.cost import DailyLedger, UsageAccumulator
+from factory_floor.machines import append_resolution_event, get_machine_history, load_machines
 from factory_floor.manuals import extract_page_pdf
-from factory_floor.rag import build_chat_history, build_retriever, get_llm
-from factory_floor.vectorstore import get_embeddings, load_vectorstore
-from factory_floor.vision import CLASSIFIER_PATH, classify_defect_trained, load_classifier
+from factory_floor.rag import get_llm
+from factory_floor.secrets import get_secret
+from factory_floor.vision import CLASSIFIER_PATH, load_classifier
 
 load_dotenv()
+# factory_floor is imported above (which snapshots Settings) before load_dotenv() runs,
+# so drop that pre-.env snapshot now — the first real get_settings() call below reads
+# the loaded environment. See CLAUDE.md 2026-08-21 on why the import order is fixed.
+get_settings.cache_clear()
 
 st.set_page_config(page_title="The Factory Floor", page_icon="🏭", layout="wide")
 
@@ -44,10 +47,30 @@ answer_language = LANGUAGES[selected_language]
 text_scale = {"Normal": 100, "Large": 130, "Extra large": 160}[text_size]
 st.markdown(f"<style>html {{ font-size: {text_scale}%; }}</style>", unsafe_allow_html=True)
 
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = get_secret("OPENAI_API_KEY")
 if not api_key:
     st.error("OPENAI_API_KEY is missing. Add it to a .env file before launching the app.")
     st.stop()
+
+# Optional operator sign-in (phase 5). Off by default — set FACTORY_FLOOR_REQUIRE_LOGIN=true
+# to require it. On a real shop floor this is a badge scan / PIN pad / MES SSO, not a form.
+if get_settings().require_login and "operator" not in st.session_state:
+    st.title("🏭 The Factory Floor")
+    st.subheader("Operator sign-in")
+    with st.form("operator_login"):
+        _op_id = st.text_input("Operator ID", placeholder="e.g. OP-1001")
+        _pin = st.text_input("PIN", type="password")
+        if st.form_submit_button("Sign in", type="primary"):
+            _operator = identity.authenticate(_op_id.strip(), _pin)
+            if _operator:
+                st.session_state["operator"] = _operator.as_dict()
+                st.rerun()
+            else:
+                st.error("Unknown operator ID or wrong PIN.")
+    st.stop()
+
+operator = st.session_state.get("operator") or {}
+_tenant_id = operator.get("tenant_id", get_settings().tenant_id)
 
 if not VECTOR_DIR.exists() or not any(VECTOR_DIR.iterdir()):
     st.error(
@@ -57,13 +80,14 @@ if not VECTOR_DIR.exists() or not any(VECTOR_DIR.iterdir()):
     st.stop()
 
 @st.cache_resource
-def load_rag_components():
-    embeddings = get_embeddings()
-    vectorstore = load_vectorstore(VECTOR_DIR, COLLECTION_NAME, embeddings=embeddings)
+def load_rag_components(tenant_id):
+    # tenant_id is the cache key — a real multi-tenant deployment loads each tenant's
+    # own collection (phase 7 seam); "default" resolves to the existing store.
+    vectorstore = services.load_tenant_vectorstore(tenant_id)
     llm = get_llm()
     return vectorstore, llm
 
-vectorstore, llm = load_rag_components()
+vectorstore, llm = load_rag_components(_tenant_id)
 
 GENERAL_MACHINE = {
     "machine_id": "GENERAL",
@@ -79,6 +103,12 @@ machine_labels = {"🌐 General question (search all manuals)": GENERAL_MACHINE}
 machine_labels.update({f"{m['machine_id']} — {m['family']} ({m['location']})": m for m in machines})
 
 with st.sidebar:
+    if operator:
+        st.caption(f"👤 {operator['name']} ({operator['operator_id']} · {operator['role']})")
+        if st.button("Sign out", use_container_width=True):
+            st.session_state.pop("operator", None)
+            st.rerun()
+
     st.subheader("Machine / Asset")
     selected_label = st.selectbox("Select equipment", list(machine_labels.keys()))
     selected_machine = machine_labels[selected_label]
@@ -87,6 +117,27 @@ with st.sidebar:
         st.caption("Searches across all manuals — no equipment_type filter, no per-machine history.")
     else:
         st.caption(f"{selected_machine['model']} · installed {selected_machine['install_date']}")
+
+    _session_usage = UsageAccumulator.from_dict(st.session_state.get("usage"))
+    if _session_usage.n_calls:
+        st.caption(f"Session LLM cost: ${_session_usage.total_usd:.4f} · {_session_usage.n_calls} calls")
+    _cap = get_settings().daily_spend_cap_usd
+    if _cap:
+        _spent_today = DailyLedger().today_total(_tenant_id)
+        st.progress(
+            min(_spent_today / _cap, 1.0) if _cap else 0.0,
+            text=f"Today: ${_spent_today:.2f} / ${_cap:.2f} daily cap",
+        )
+
+    if get_settings().semantic_cache_enabled:
+        try:
+            _cache_n = SemanticCache().count()
+        except Exception:
+            _cache_n = 0
+        st.caption(f"⚡ Answer cache: {_cache_n} entries")
+        if st.button("Clear answer cache", use_container_width=True):
+            SemanticCache().clear()
+            st.rerun()
 
 
 @st.cache_data(show_spinner=False)
@@ -126,8 +177,6 @@ def describe_tool_call(entry):
     return f"🔧 Called {entry['tool']}({entry['input']})"
 
 
-TOP_K = 5
-
 st.session_state.setdefault("turns", [])
 
 
@@ -145,7 +194,16 @@ def render_turn(turn, turn_index):
                 st.success("Photo condition: **good** — no defect detected")
 
     st.subheader("Diagnostic reasoning")
+    if turn.get("cache_hit"):
+        st.caption("⚡ Answered from the cache — an equivalent question was asked before.")
     st.markdown(turn["answer"])
+
+    safety = turn.get("safety") or {}
+    if safety.get("action") == "held":
+        st.error("🛑 This answer was withheld by the safety gate — it recommended physical work "
+                 "without stating precautions first. The safe fallback is shown above.")
+    elif safety.get("action") == "rewritten":
+        st.caption("🛡️ Safety precautions were added to this answer before it was shown.")
 
     tool_trace = turn.get("tool_trace") or []
     if tool_trace:
@@ -194,7 +252,7 @@ def submit_turn(question_text, uploaded_photo):
     # can tell them apart — so ask, rather than silently correcting and answering about a
     # code they never asked about. Runs before any API call is made.
     if not st.session_state.pop("code_typo_confirmed", False):
-        typos = extract_possible_codes(question_text)
+        typos = services.check_typo(question_text)
         if typos:
             as_typed, suggestion = typos[0]
             st.session_state["pending_typo"] = {
@@ -215,34 +273,32 @@ def submit_turn(question_text, uploaded_photo):
         clf, _label_list = vision_components
         image_bytes = uploaded_photo.getvalue()
         with st.spinner("Looking at the photo..."):
-            classification = classify_defect_trained(io.BytesIO(image_bytes), clf)
-        vision_context = (
-            f"Vision analysis of the uploaded photo: predicted condition = "
-            f"{classification['predicted_label']} (confidence {classification['confidence']:.0%}, "
-            f"{'defective' if classification['is_defective'] else 'no defect detected'})."
-        )
+            photo = services.classify_photo(image_bytes, clf)
+        classification = photo["classification"]
+        vision_context = photo["vision_context"]
 
-    retriever = build_retriever(
-        vectorstore, k=TOP_K, equipment_type=st.session_state["selected_machine"]["equipment_type"],
-        rerank=True, rerank_llm=llm, code_aware=True,
+    selected_machine = st.session_state["selected_machine"]
+    request = services.DiagnosticRequest(
+        question_text=question_text,
+        machine_id=selected_machine["machine_id"],
+        equipment_type=selected_machine["equipment_type"],
+        chat_history=services.build_chat_history(st.session_state["turns"]),
+        vision_context=vision_context,
+        language=answer_language,
+        operator_id=operator.get("operator_id"),
+        tenant_id=_tenant_id,
     )
-    chat_history = build_chat_history(st.session_state["turns"])
-    machine_id = st.session_state["selected_machine"]["machine_id"]
 
     st.markdown(
         f"**Q{len(st.session_state['turns']) + 1}.** "
         f"{question_text or '[Uploaded a photo of a component]'}"
     )
 
-    generator, streamed = stream_diagnostic_agent(
-        question_text,
-        retriever,
-        machine_id,
-        chat_history=chat_history,
-        vision_context=vision_context,
-        llm=llm,
-        language=answer_language,
-    )
+    generator, result = services.run_diagnostic(request, vectorstore=vectorstore, llm=llm, stream=True)
+
+    if result.blocked:
+        st.error(result.message)
+        return
 
     with st.spinner("Reasoning about the evidence..."):
         first_chunk = next(generator, None)
@@ -251,20 +307,27 @@ def submit_turn(question_text, uploaded_photo):
     if first_chunk is not None:
         st.write_stream(itertools.chain([first_chunk], generator))
 
-    turn = {
-        "type": "agent",
-        "question": question_text or "[Uploaded a photo of a component]",
-        "answer": streamed.answer,
-        "documents": streamed.documents,
-        "sources": streamed.sources,
-        "tool_trace": streamed.tool_trace,
-        "image_bytes": image_bytes,
-        "vision_context": vision_context,
-        "predicted_label": classification["predicted_label"] if classification else None,
-        "is_defective": classification["is_defective"] if classification else None,
-        "language": answer_language,
-    }
+    safety = result.safety or {}
+    if safety.get("action") == "held":
+        st.error("🛑 This answer was withheld by the safety gate — it recommended physical work "
+                 "without stating precautions first. A safe fallback is shown above.")
+    elif safety.get("action") == "rewritten":
+        st.info("Safety precautions were added to this answer before it was shown.")
+
+    turn = services.assemble_turn(
+        result,
+        image_bytes=image_bytes,
+        classification=classification,
+        vision_context=vision_context,
+        language=answer_language,
+    )
     st.session_state["turns"].append(turn)
+
+    if result.cost:
+        session_usage = UsageAccumulator.from_dict(st.session_state.get("usage"))
+        session_usage.merge(result.cost)
+        st.session_state["usage"] = session_usage.as_dict()
+
     st.session_state["followup_key"] = st.session_state.get("followup_key", 0) + 1
     st.rerun()
 
@@ -375,11 +438,43 @@ if st.session_state["turns"]:
     machine_id = st.session_state["selected_machine"]["machine_id"]
     if machine_id != "GENERAL":
         with st.expander(f"Maintenance history — {machine_id}"):
-            history = get_machine_history(machine_id)
+            history = get_machine_history(machine_id, include_resolutions=True)
             if history:
                 st.dataframe(history, use_container_width=True, hide_index=True)
             else:
                 st.caption("No recorded history for this machine.")
+
+        _last_turn = st.session_state["turns"][-1]
+        with st.expander("📝 Record what you actually did (adds to this machine's history)"):
+            _steps = st.text_area(
+                "Resolution steps taken",
+                key=f"resolution_{st.session_state.get('followup_key', 0)}",
+                placeholder="e.g. Isolated the drive, measured insulation resistance motor-to-earth (0.2 MΩ), "
+                "replaced the motor cable, retested. Fault cleared.",
+            )
+            _save_col, _cmms_col = st.columns(2)
+            with _save_col:
+                if st.button("Save to machine history", use_container_width=True):
+                    if not _steps.strip():
+                        st.warning("Type what you did first.")
+                    else:
+                        _ev_id = append_resolution_event(
+                            machine_id,
+                            operator_id=operator.get("operator_id"),
+                            steps_text=_steps.strip(),
+                            recommendation_id=_last_turn.get("audit_id"),
+                        )
+                        st.session_state["last_resolution_id"] = _ev_id
+                        st.success("Saved to this machine's history.")
+                        st.rerun()
+            with _cmms_col:
+                if st.button(
+                    "Send to CMMS/ERP (demo)",
+                    use_container_width=True,
+                    disabled="last_resolution_id" not in st.session_state,
+                ):
+                    _ack = audit.export_to_cmms(st.session_state["last_resolution_id"])
+                    st.toast(f"CMMS accepted — ref {_ack['cmms_ref']}")
 
     followup_col, _followup_spacer_col = st.columns([2, 1])
     with followup_col:

@@ -1,0 +1,46 @@
+# Tooling config for The Factory Floor.
+#
+# This file was added by the professionalization work (phase 0). It configures the
+# test runner, linter, and coverage — it does NOT turn the project into an installable
+# package. Runtime dependencies stay pinned in requirements.txt; test/lint tooling is
+# in requirements-dev.txt.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
+markers = [
+    "unit: fast, no network, no filesystem beyond tmp_path (the default)",
+    "integration: builds a tiny local Chroma store with fake embeddings; no API key",
+    "llm: needs a real OPENAI_API_KEY and spends money; skipped in CI",
+    "slow: takes more than a couple of seconds",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:langchain_community.*",
+    # Noise from transformers/torch/SWIG being dragged in transitively by langchain_openai.
+    "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+    "ignore:`torch.jit.script_method` is deprecated:DeprecationWarning",
+    # starlette's own TestClient shim; nothing we control.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.ruff]
+# Only the real source is linted. Notebooks and one-off download/build scripts are
+# exploratory and deliberately out of scope.
+include = ["factory_floor/**/*.py", "app.py", "api/**/*.py", "tests/**/*.py"]
+line-length = 110
+
+[tool.ruff.lint]
+# Deliberately minimal: pyflakes (F) catches undefined names / unused imports / bad
+# f-strings, and the E4/E7/E9 pycodestyle subset catches real errors — without the
+# style churn a broader set would force on the existing code. Widen later if wanted.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["F811"]  # pytest fixtures legitimately shadow their own names
+
+[tool.coverage.run]
+source = ["factory_floor"]
+omit = ["factory_floor/retrieval_benchmark.py", "factory_floor/evaluation.py"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if __name__ == .__main__.:"]
