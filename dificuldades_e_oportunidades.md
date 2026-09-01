@@ -432,7 +432,7 @@ literalmente do domínio motor+VFD.
 do dataset de memória, descarregar e inspecionar primeiro, confirmar o mapeamento real de labels
 antes de qualquer código de treino.
 
-### 5. Atalho de custo-zero para um caso já resolvido nesta máquina
+### 5. ~~Atalho de custo-zero para um caso já resolvido nesta máquina~~ — CONSTRUÍDO a 2026-09-01 (parcial)
 
 Motivada pelo mesmo teste manual que originou a dificuldade **18** (2026-09-01). Hoje, se um
 operador já registou a resolução para exatamente este código de avaria nesta máquina, uma pergunta
@@ -453,3 +453,34 @@ de dados *escritos por um humano*, e explicável ao operador ("a Ana resolveu is
 assim"). Os dois são complementares, não alternativos.
 
 **Depende de:** oportunidade **1** (histórico escrevível — já feito) e dificuldade **18**.
+
+**CONSTRUÍDO a 2026-09-01**, mas deliberadamente **não** como "servir a resolução em vez do
+diagnóstico". Ao desenhar isto contra os dados reais do VFD-04, a versão ingénua revelou-se
+perigosa: o `F30805` foi respondido 2× com "Replaced the power unit module" e **voltou na mesma**,
+e depois 3× com um simples desliga-liga. Uma contagem por frequência recomendaria o desliga-liga
+por 3 votos a 2 — ou seja, recomendaria **mascarar uma avaria de hardware recorrente**. Sem saber
+se cada ação *funcionou*, "mais frequente" nunca é "mais eficaz".
+
+O que foi construído:
+
+- `factory_floor/recurrence.py` — **sem nenhum LLM**. Só contagem, ordenação e aritmética de datas
+  sobre registos que já existem: `code_in_question()`, `find_prior_occurrences()`, `summarize()`,
+  `prior_occurrence_report()`. Nada no painel pode ser inventado, porque nada é gerado.
+- **Interceção antes do diagnóstico** (`app.py::submit_turn`, mesmo padrão da confirmação de
+  gralha de código): se a pergunta traz **um** código de avaria, há máquina selecionada, é a
+  primeira pergunta da conversa e esse código **já aconteceu nesta máquina**, mostra o painel a
+  custo zero e espera. O operador escolhe entre "Run the full diagnosis anyway" e "That's enough".
+  Sem código, sem histórico ou em follow-up, corre o diagnóstico normal sem interromper.
+- **O painel relata, não recomenda.** Tabela das ocorrências (data, o que foi feito, por quem,
+  resultado, origem, horas de paragem) + aviso de recorrência com o intervalo mais curto. Há um
+  teste (`test_never_recommends_an_action`) que falha se alguém acrescentar uma chave de
+  recomendação ao resumo.
+- **Duas colunas novas em `resolution_events`** (com migração `ALTER TABLE` idempotente para BDs
+  já existentes): `fault_code` — sem ele uma resolução gravada não era sequer *encontrável* na
+  ocorrência seguinte, que era o bloqueio real — e `outcome`
+  (`resolved` | `temporary` | `not_resolved`). A UI de registo passou a pedir os dois.
+
+**Por fazer:** o `outcome` só agora começou a ser recolhido, por isso ainda não há dados para
+ordenar ações por eficácia. Quando houver meses de uso, torna-se possível dizer "a substituição do
+módulo aguentou 4 anos; o reset aguentou 2 dias" — e aí, sim, uma recomendação baseada em
+histórico passa a ter fundamento.

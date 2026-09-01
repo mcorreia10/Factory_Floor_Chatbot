@@ -75,11 +75,36 @@ CREATE TABLE IF NOT EXISTS resolution_events (
     operator_id TEXT,
     ts_utc TEXT NOT NULL,
     steps_text TEXT NOT NULL,
-    cmms_exported_at TEXT
+    cmms_exported_at TEXT,
+    fault_code TEXT,
+    outcome TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_cost_events_day ON cost_events(date, tenant_id);
 CREATE INDEX IF NOT EXISTS ix_resolution_machine ON resolution_events(machine_id);
 """
+
+# Indexes over columns that _ADDED_COLUMNS introduces. These cannot live in _SCHEMA: on a
+# database created before those columns existed, executescript() runs before the ALTERs
+# and would fail with "no such column".
+_SCHEMA_AFTER_MIGRATION = """
+CREATE INDEX IF NOT EXISTS ix_resolution_code ON resolution_events(machine_id, fault_code);
+"""
+
+# Columns added after the table shipped. CREATE TABLE IF NOT EXISTS will not add them to
+# an existing database, so init_db() applies these too — keyed on the live PRAGMA rather
+# than a version number, which keeps it idempotent and needs no migration bookkeeping.
+_ADDED_COLUMNS = {
+    "resolution_events": {
+        # Which fault the operator was resolving. Without it a recorded resolution could
+        # not be matched to a later occurrence of the same code — the blocker that made
+        # the zero-cost prior-occurrence panel impossible to build.
+        "fault_code": "TEXT",
+        # Whether it actually worked: resolved | temporary | not_resolved | "" (legacy,
+        # unknown). "Most frequent action" is not "most effective action" without this —
+        # VFD-04's power unit module was replaced twice and F30805 still came back.
+        "outcome": "TEXT",
+    },
+}
 
 
 def _now() -> str:
@@ -111,6 +136,12 @@ def _connect(path=None):
 def init_db(path=None) -> None:
     with _connect(path) as conn:
         conn.executescript(_SCHEMA)
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+            for name, decl in columns.items():
+                if name not in existing:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+        conn.executescript(_SCHEMA_AFTER_MIGRATION)
 
 
 # --- recommendations ----------------------------------------------------------------
@@ -189,13 +220,19 @@ def get_audit_trail(machine_id=None, operator_id=None, tenant_id=None, limit=100
 
 # --- resolution events (writable history) ------------------------------------------
 
-def append_resolution_event(recommendation_id, *, machine_id, operator_id, steps_text, path=None) -> int:
+def append_resolution_event(recommendation_id, *, machine_id, operator_id, steps_text,
+                            fault_code=None, outcome=None, path=None) -> int:
+    """``fault_code`` is what makes a resolution findable again on the next occurrence;
+    ``outcome`` (resolved | temporary | not_resolved) is what separates "done most often"
+    from "actually worked". Both default to "" so pre-existing callers keep working."""
     init_db(path)
     with _connect(path) as conn:
         cur = conn.execute(
             "INSERT INTO resolution_events "
-            "(recommendation_id, machine_id, operator_id, ts_utc, steps_text) VALUES (?,?,?,?,?)",
-            (recommendation_id, machine_id, operator_id, _now(), steps_text),
+            "(recommendation_id, machine_id, operator_id, ts_utc, steps_text, fault_code, outcome) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (recommendation_id, machine_id, operator_id, _now(), steps_text,
+             (fault_code or "").strip().upper(), (outcome or "").strip()),
         )
     return int(cur.lastrowid)
 

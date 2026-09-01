@@ -6,11 +6,16 @@ from urllib.parse import quote
 import streamlit as st
 from dotenv import load_dotenv
 
-from factory_floor import audit, identity, services
+from factory_floor import audit, identity, recurrence, services
 from factory_floor.cache import SemanticCache
 from factory_floor.config import MANUAL_DIR, VECTOR_DIR, get_settings
 from factory_floor.cost import DailyLedger, UsageAccumulator
-from factory_floor.machines import append_resolution_event, get_machine_history, load_machines
+from factory_floor.machines import (
+    OUTCOME_LABELS,
+    append_resolution_event,
+    get_machine_history,
+    load_machines,
+)
 from factory_floor.manuals import extract_page_pdf
 from factory_floor.rag import get_llm
 from factory_floor.secrets import get_secret
@@ -191,6 +196,55 @@ def source_rows(docs):
     return rows
 
 
+def render_prior_occurrences(report):
+    """The zero-cost panel: what this machine's own records already say about this fault.
+
+    Everything here is read from maintenance_history.csv and resolution_events — no model
+    was called, so nothing on screen can be invented. It deliberately stops at reporting:
+    ranking the past actions would recommend whatever was done most often, which on real
+    data is the wrong advice (a fault answered twice with a module replacement and three
+    times with a power cycle is a recurring hardware fault, not a power-cycle problem)."""
+    code = report["fault_code"]
+    count = report["count"]
+    st.info(
+        f"**{code} has happened on {report['machine_id']} before — "
+        f"{count} previous occurrence{'s' if count > 1 else ''}.** "
+        "Taken straight from this machine's records. No model was called, so this cost nothing."
+    )
+
+    rows = [
+        {
+            "Date": a["date"],
+            "What was done": a["action"] or "—",
+            "By": a["who"] or "—",
+            "Outcome": OUTCOME_LABELS.get(a["outcome"], a["outcome"] or "not recorded"),
+            "Source": "operator note" if a["source"] == "operator" else "logbook",
+            "Downtime (h)": a["downtime_hours"] or "—",
+        }
+        for a in report["actions"]
+    ]
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+    if report["recurring"]:
+        gap = report["shortest_gap_days"]
+        if report["returned_quickly"]:
+            st.warning(
+                f"⚠ **Recurring, and it came back fast** — only {gap} days between two "
+                "occurrences. Whatever was done last time did not hold."
+            )
+        elif gap is not None:
+            st.warning(
+                f"⚠ **This fault has returned before** — shortest gap between occurrences "
+                f"was {gap} days. A repair that was done already is not proof it is fixed."
+            )
+    if not report["outcomes"]:
+        st.caption(
+            "None of these records say whether the fix actually worked — the outcome field "
+            "was added recently. Filling it in when you record a resolution is what will "
+            "eventually make it possible to tell an effective action from a frequent one."
+        )
+
+
 MAILTO_MAX_CHARS = 1800
 
 
@@ -312,6 +366,22 @@ def submit_turn(question_text, uploaded_photo):
                 "as_typed": as_typed,
                 "suggestion": suggestion,
             }
+            return
+
+    # Has this exact fault already happened on this machine? Pure lookup over records we
+    # already hold — no model, no cost — so the operator sees it before deciding whether
+    # a diagnosis is worth running at all. Only on the first question of a conversation:
+    # interrupting a follow-up would break the thread the operator is already in.
+    if (
+        not st.session_state["turns"]
+        and uploaded_photo is None
+        and not st.session_state.pop("prior_occurrence_ack", False)
+    ):
+        report = recurrence.prior_occurrence_report(
+            st.session_state["selected_machine"]["machine_id"], question_text
+        )
+        if report:
+            st.session_state["pending_prior"] = {"question": question_text, "report": report}
             return
 
     classification = None
@@ -483,6 +553,20 @@ with form_col:
                 st.session_state.pop("pending_typo")
                 submit_turn(pending["question"], None)
 
+    pending_prior = st.session_state.get("pending_prior")
+    if pending_prior:
+        render_prior_occurrences(pending_prior["report"])
+        run_col, skip_col = st.columns(2)
+        with run_col:
+            if st.button("Run the full diagnosis anyway", type="primary", use_container_width=True):
+                st.session_state["prior_occurrence_ack"] = True
+                st.session_state.pop("pending_prior")
+                submit_turn(pending_prior["question"], None)
+        with skip_col:
+            if st.button("That's enough — don't run it", use_container_width=True):
+                st.session_state.pop("pending_prior")
+                st.rerun()
+
 for idx, turn in enumerate(st.session_state["turns"]):
     render_turn(turn, idx)
 
@@ -504,6 +588,27 @@ if st.session_state["turns"]:
                 placeholder="e.g. Isolated the drive, measured insulation resistance motor-to-earth (0.2 MΩ), "
                 "replaced the motor cable, retested. Fault cleared.",
             )
+            # The fault code is what makes this record findable the next time the same
+            # fault appears; the outcome is what stops "done most often" being mistaken
+            # for "actually worked". Both were missing until now, which is exactly why
+            # earlier recorded resolutions cannot be matched to a fault at all.
+            _code_col, _outcome_col = st.columns(2)
+            with _code_col:
+                _fault_code = st.text_input(
+                    "Fault code this resolves (optional)",
+                    value=recurrence.code_in_question(_last_turn.get("question", "")) or "",
+                    key=f"resolution_code_{st.session_state.get('followup_key', 0)}",
+                    placeholder="e.g. F30805",
+                )
+            with _outcome_col:
+                _outcome_label = st.selectbox(
+                    "Did it work?",
+                    ["— not recorded —"] + list(OUTCOME_LABELS.values()),
+                    key=f"resolution_outcome_{st.session_state.get('followup_key', 0)}",
+                )
+            _outcome = next(
+                (k for k, v in OUTCOME_LABELS.items() if v == _outcome_label), ""
+            )
             _save_col, _cmms_col, _mail_col = st.columns(3)
             with _save_col:
                 if st.button("Save to machine history", use_container_width=True):
@@ -515,6 +620,8 @@ if st.session_state["turns"]:
                             operator_id=operator.get("operator_id"),
                             steps_text=_steps.strip(),
                             recommendation_id=_last_turn.get("audit_id"),
+                            fault_code=_fault_code,
+                            outcome=_outcome,
                         )
                         st.session_state["last_resolution_id"] = _ev_id
                         st.success("Saved to this machine's history.")
