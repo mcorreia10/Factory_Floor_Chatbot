@@ -73,7 +73,15 @@ Rules:
    action at all — you are asking a clarifying question, or only explaining what a
    fault code means — no safety section is required and you must not pad the answer
    with one.
-7. This is an educational milestone, not yet a certified safety system."""
+7. FORMATTING. Give every section of the answer a short heading on its own line,
+   written as a markdown level-4 heading -- four hash characters, a space, then the
+   heading text. Use this for the safety precautions section, the likely cause, the
+   checks to perform, the remedies the manual suggests, and any other section you
+   introduce. Write the heading in the same language as the rest of the answer. Do not
+   put a colon at the end of a heading, and do not bold it by hand -- the interface
+   styles these headings itself. Keep the body of each section as normal prose or
+   bullet points.
+8. This is an educational milestone, not yet a certified safety system."""
 
 
 def format_machine_context(machine_id: str) -> str:

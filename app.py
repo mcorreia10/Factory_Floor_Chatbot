@@ -1,5 +1,7 @@
 import itertools
+from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -20,7 +22,27 @@ load_dotenv()
 # the loaded environment. See CLAUDE.md 2026-08-21 on why the import order is fixed.
 get_settings.cache_clear()
 
-st.set_page_config(page_title="The Factory Floor", page_icon="🏭", layout="wide")
+st.set_page_config(page_title="The Factory Floor", layout="wide")
+
+# The agent writes each section of its answer as a markdown level-4 heading (rule 7 of
+# DIAGNOSTIC_SYSTEM_PROMPT) — "Safety precautions", "Remedies suggested by the manual",
+# and so on. Style them here rather than asking the model to bold them by hand, so the
+# look is consistent whether the text came from the agent, a safety rewrite, or the
+# cache. h4 is not used anywhere else in this app (st.title/st.subheader emit h1/h3).
+st.markdown(
+    """
+    <style>
+      .stMarkdown h4 {
+          font-size: 1.18rem;
+          font-weight: 700;
+          font-style: italic;
+          margin-top: 1.1rem;
+          margin-bottom: 0.35rem;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 LANGUAGES = {
     "🇬🇧 English": "English",
@@ -55,7 +77,7 @@ if not api_key:
 # Optional operator sign-in (phase 5). Off by default — set FACTORY_FLOOR_REQUIRE_LOGIN=true
 # to require it. On a real shop floor this is a badge scan / PIN pad / MES SSO, not a form.
 if get_settings().require_login and "operator" not in st.session_state:
-    st.title("🏭 The Factory Floor")
+    st.title("The Factory Floor")
     st.subheader("Operator sign-in")
     with st.form("operator_login"):
         _op_id = st.text_input("Operator ID", placeholder="e.g. OP-1001")
@@ -167,6 +189,36 @@ def source_rows(docs):
             }
         )
     return rows
+
+
+MAILTO_MAX_CHARS = 1800
+
+
+def _resolution_mailto(machine_id, operator, turn, steps_text):
+    """A mailto: URL with the resolution report pre-filled, for the operator to send to
+    their supervisor from their own mail client.
+
+    Capped at MAILTO_MAX_CHARS: mail clients and browsers silently truncate or refuse
+    very long mailto URLs, and a report that arrives cut in half is worse than one that
+    says plainly it was shortened."""
+    body_parts = [
+        f"Machine: {machine_id}",
+        f"Operator: {operator.get('name', 'unknown')} ({operator.get('operator_id', '-')})",
+        f"Reported (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+        "",
+        "Question asked:",
+        (turn.get("question") or "-").strip(),
+        "",
+        "Resolution steps taken:",
+        (steps_text or "").strip() or "-",
+        "",
+        "-- Sent from The Factory Floor maintenance copilot.",
+    ]
+    body = "\n".join(body_parts)
+    if len(body) > MAILTO_MAX_CHARS:
+        body = body[:MAILTO_MAX_CHARS] + "\n\n[... shortened — see the machine history for the full record]"
+    subject = f"Maintenance report — {machine_id}"
+    return f"mailto:?subject={quote(subject)}&body={quote(body)}"
 
 
 def describe_tool_call(entry):
@@ -385,7 +437,7 @@ with form_col:
             </svg>
             <div style="position:relative; z-index:1;">
                 <div style="font-size:2rem; font-weight:800; color:#ffffff; letter-spacing:-0.01em; line-height:1.25;">
-                    <span style="margin-right:0.5rem;">🏭</span>Industrial Maintenance Copilot
+                    Industrial Maintenance Copilot
                 </div>
                 <div style="font-size:1.1rem; font-weight:500; color:#c7d5e3; margin-top:0.35rem;">
                     Electric Motors + Variable-Frequency Drives
@@ -452,7 +504,7 @@ if st.session_state["turns"]:
                 placeholder="e.g. Isolated the drive, measured insulation resistance motor-to-earth (0.2 MΩ), "
                 "replaced the motor cable, retested. Fault cleared.",
             )
-            _save_col, _cmms_col = st.columns(2)
+            _save_col, _cmms_col, _mail_col = st.columns(3)
             with _save_col:
                 if st.button("Save to machine history", use_container_width=True):
                     if not _steps.strip():
@@ -475,6 +527,22 @@ if st.session_state["turns"]:
                 ):
                     _ack = audit.export_to_cmms(st.session_state["last_resolution_id"])
                     st.toast(f"CMMS accepted — ref {_ack['cmms_ref']}")
+            with _mail_col:
+                # A mailto: link, deliberately: it opens the operator's own mail client
+                # with the report pre-filled, so there is no SMTP server to configure and
+                # no mail credentials for this app to hold. The operator picks the
+                # recipient and presses send, which is also the honest trust boundary —
+                # the app never sends mail on someone's behalf.
+                st.link_button(
+                    "Email to supervisor",
+                    _resolution_mailto(machine_id, operator, _last_turn, _steps),
+                    use_container_width=True,
+                    disabled=not _steps.strip(),
+                )
+            st.caption(
+                "“Email to supervisor” opens your mail app with the report filled in — "
+                "choose the recipient and send it yourself."
+            )
 
     followup_col, _followup_spacer_col = st.columns([2, 1])
     with followup_col:

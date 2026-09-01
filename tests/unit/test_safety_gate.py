@@ -144,3 +144,40 @@ class TestCostConfigForwarding:
         llm = self._RecordingLLM([_audit(precautions_present=True, precautions_first=True)])
         enforce_safety(ACTION_NO_PRECAUTION, llm=llm, mode="rewrite")
         assert llm.configs == [None]
+
+
+PT_ACTION_NO_PRECAUTION = (
+    "Verifique o cabo do motor [SOURCE 1] e substitua-o se o isolamento estiver danificado."
+)
+
+
+class TestNonEnglishStillReachesTheJudge:
+    """The keyword shortcut is English-only. Before this, a Portuguese answer matched no
+    action verb, scored recommends_action=False and took the cheap pass — the safety gate
+    silently did nothing for 4 of the 5 languages the app offers."""
+
+    def test_portuguese_action_answer_is_judged_not_waved_through(self, make_gate_llm):
+        # The judge says it fails; if the shortcut were still trusted we would never get
+        # here and the answer would come back "pass" unchanged.
+        gate = enforce_safety(
+            PT_ACTION_NO_PRECAUTION,
+            llm=make_gate_llm([_audit(), _audit()]),  # original fails, rewrite fails too
+            mode="block",
+            language="Portuguese",
+        )
+        assert gate.action == "held"
+
+    def test_english_keeps_the_cheap_path(self, make_gate_llm):
+        # No action verb, English: still passes without consulting the judge. Passing an
+        # empty audit list proves the judge was never called (it would raise otherwise).
+        gate = enforce_safety(CLARIFYING_QUESTION, llm=make_gate_llm([]), language="English")
+        assert gate.action == "pass"
+        assert gate.reason == "no physical action instructed"
+
+    def test_keyword_reliability_is_recorded(self, make_gate_llm):
+        gate = enforce_safety(
+            PT_ACTION_NO_PRECAUTION,
+            llm=make_gate_llm([_audit(precautions_present=True, precautions_first=True)]),
+            language="Portuguese",
+        )
+        assert gate.audit["keyword_reliable"] is False
