@@ -1,5 +1,10 @@
 # Secrets
 .env
+# Backups of .env carry the same real keys — never commit them. (.env.example does
+# not match these patterns and stays tracked on purpose.)
+.env.bak
+.env.bak.*
+.env.local
 
 # Python
 __pycache__/
