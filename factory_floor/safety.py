@@ -48,18 +48,22 @@ class SafetyAudit(BaseModel):
     reasoning: str = Field(description="One or two sentences justifying the ordering verdict")
 
 
-def check_safety_precautions(answer_text: str, llm=None) -> dict:
+def check_safety_precautions(answer_text: str, llm=None, config: dict | None = None) -> dict:
     """LLM-as-judge safety audit, mirrors vision.py's DefectPrediction/
     with_structured_output pattern. Returns a plain dict (the Pydantic model never
     escapes this module, same convention as the rest of the package).
 
     `passed` is the metric the evaluation notebook actually reports: an answer with
     no physical action can never fail (nothing to order); one that does recommend an
-    action fails unless precautions are both present and stated first."""
+    action fails unless precautions are both present and stated first.
+
+    ``config`` is the LangChain run config, forwarded so the caller's cost-tracking
+    callback meters this call too — the gate's judge is real spend and used to be
+    invisible to both the session cost line and the daily cap."""
     llm = llm or get_llm()
     structured_llm = llm.with_structured_output(SafetyAudit)
     messages = [SystemMessage(SAFETY_JUDGE_SYSTEM_PROMPT), HumanMessage(content=answer_text)]
-    audit = structured_llm.invoke(messages)
+    audit = structured_llm.invoke(messages, config)
     passed = (not audit.recommends_action) or (audit.precautions_present and audit.precautions_first)
     return {
         "recommends_action": audit.recommends_action,
@@ -192,7 +196,7 @@ class SafetyGateResult:
 
 
 def enforce_safety(answer_text: str | None, *, llm=None, mode: str = "rewrite",
-                   language: str = "English") -> SafetyGateResult:
+                   language: str = "English", config: dict | None = None) -> SafetyGateResult:
     """Gate one answer before it reaches the operator.
 
     mode="off"     -> always pass, unchanged.
@@ -221,7 +225,7 @@ def enforce_safety(answer_text: str | None, *, llm=None, mode: str = "rewrite",
                                 "no physical action instructed")
 
     llm = llm or get_llm()
-    judge = check_safety_precautions(text, llm=llm)
+    judge = check_safety_precautions(text, llm=llm, config=config)
     audit["judge"] = judge
     if judge["passed"]:
         return SafetyGateResult("pass", answer_text, answer_text, audit,
@@ -236,10 +240,10 @@ def enforce_safety(answer_text: str | None, *, llm=None, mode: str = "rewrite",
         f"citation and every fault code exactly as written.\n\n---\n{text}"
     )
     rewritten = llm.invoke(
-        [SystemMessage(SAFETY_REWRITE_SYSTEM_PROMPT), HumanMessage(content=human)]
+        [SystemMessage(SAFETY_REWRITE_SYSTEM_PROMPT), HumanMessage(content=human)], config
     ).content.strip()
 
-    recheck = check_safety_precautions(rewritten, llm=llm)
+    recheck = check_safety_precautions(rewritten, llm=llm, config=config)
     preserved = _tokens_preserved(text, rewritten)
     audit["recheck"] = recheck
     audit["citations_preserved"] = preserved

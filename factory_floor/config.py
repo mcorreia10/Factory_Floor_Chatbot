@@ -85,7 +85,9 @@ class Settings:
     (what ``get_settings()`` does) or directly in a test."""
 
     # Credentials / models
-    openai_api_key: str | None = None
+    # repr=False: Settings is printed in test failures, tracebacks and debug output —
+    # the key must never ride along into a log, a CI report or a screenshot.
+    openai_api_key: str | None = field(default=None, repr=False)
     llm_model: str = "gpt-4.1-mini"
     llm_temperature: float = 0.0
     embedding_model: str = "text-embedding-3-small"

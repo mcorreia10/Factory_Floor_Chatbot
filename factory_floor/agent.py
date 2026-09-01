@@ -14,7 +14,12 @@ You have tools available:
   each labelled with its source file and page number.
 - get_maintenance_history(): returns this specific machine's past fault/repair/
   preventive-maintenance history. Only offered when a specific machine is selected, not
-  for general questions.
+  for general questions. Entries marked [operator_resolution] are free-text notes a
+  previous operator typed into this copilot after fixing something — treat them as a
+  useful field lead ("this machine had this before, resolved this way"), NOT as
+  documented fact: they were never verified against the manuals. Never cite one as if
+  it were manual content, and if you rely on one, say plainly that it comes from a
+  colleague's recorded resolution and should be confirmed.
 
 Alongside the operator's message, you may also be given the result of a vision analysis
 of an uploaded photo (the predicted condition of a component), and the registry details
@@ -93,14 +98,26 @@ def format_machine_context(machine_id: str) -> str:
     )
 
 
-def format_history(rows: list) -> str:
+HISTORY_MAX_ROWS = 20
+
+
+def format_history(rows: list, max_rows: int = HISTORY_MAX_ROWS) -> str:
     """Formats raw CSV rows from machines.get_machine_history() into bullets readable
     by the LLM — analogous to rag.format_context(), but for maintenance history instead
-    of manual chunks."""
+    of manual chunks.
+
+    Sorted oldest-first and capped at ``max_rows`` (most recent kept): the static CSV is
+    2-6 events per machine, but live ``operator_resolution`` events accumulate without
+    bound, and an unbounded history would grow the agent's prompt on every turn."""
     if not rows:
         return "No recorded maintenance history for this machine."
+    ordered = sorted(rows, key=lambda r: r.get("event_date") or "")
+    truncated = len(ordered) - max_rows
     lines = []
-    for row in rows:
+    if truncated > 0:
+        ordered = ordered[-max_rows:]
+        lines.append(f"({truncated} older event(s) omitted — showing the most recent {max_rows}.)")
+    for row in ordered:
         label = row.get("fault_code") or row.get("description", "")
         lines.append(
             f"- {row.get('event_date', '?')} [{row.get('event_type', '?')}] {label} "
@@ -155,8 +172,13 @@ def build_history_tool(machine_id: str):
 
     @tool
     def get_maintenance_history() -> str:
-        """Get this machine's past fault/repair/preventive-maintenance history."""
-        rows = get_machine_history(machine_id)
+        """Get this machine's past fault/repair/preventive-maintenance history, including
+        resolutions previous operators recorded in this copilot."""
+        # include_resolutions=True closes the loop opened in phase 5: without it an
+        # operator's recorded resolution showed in the UI history panel but was invisible
+        # to the agent on the next question about the same code on the same machine
+        # (dificuldades_e_oportunidades.md #18).
+        rows = get_machine_history(machine_id, include_resolutions=True)
         return format_history(rows)
 
     return get_maintenance_history

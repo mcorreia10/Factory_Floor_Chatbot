@@ -968,3 +968,73 @@ repo init and the 3-page project doc are explicitly out of scope, left for a fut
 
 Full numbers: see `README.md`'s 2026-08-21 session note and `notebooks/10_evaluation_baseline.ipynb`'s
 own printed output for the complete per-category and per-scenario breakdown.
+
+## 2026-09-01 — Correções de higiene + fecho do ciclo de histórico
+
+Sessão de análise do projeto que produziu três correções pequenas mas reais. Testes
+164/164 verdes (`pytest -m "not llm"`), ruff limpo.
+
+### Segredos — dois furos reais, tapados
+
+- **`.env.bak.*` não estava no `.gitignore`.** O ignore cobria `.env` mas não os backups —
+  um backup criado ao editar o `.env` ficava rastreável, e um `git add -A` distraído
+  committava as chaves reais para um repo público. `.gitignore` ganhou `.env.bak`,
+  `.env.bak.*` e `.env.local`; verificado que `.env.example` **não** casa com nenhum
+  destes padrões e continua rastreado.
+- **`Settings.openai_api_key` aparecia no `repr`.** Uma falha de teste em
+  `test_config.py` imprimiu o início da chave real no output do pytest. Passou a
+  `field(default=None, repr=False)`. Em CI não há chave, mas o `repr` do `Settings`
+  aparece em tracebacks, logs e screenshots — não é sítio para um segredo.
+
+### Isolamento de testes
+
+`tests/conftest.py` carrega o `.env` real (de propósito, para os testes marcados `llm`
+terem chave). Consequência: qualquer teste que afirme um **default** parte assim que o
+dono configurar esse knob. Aconteceu — pôr `FACTORY_FLOOR_DAILY_SPEND_CAP_USD=5.00` no
+`.env` partiu `test_optional_float_parsing`, que assumia `None`. Corrigido com um
+`monkeypatch.delenv` na própria assertion (o padrão que o teste vizinho
+`test_from_env_with_nothing_set_equals_defaults` já usava). **Ao escrever um teste novo
+sobre um default de `Settings`, limpa a env var primeiro** — não confies no `.env`.
+
+### Dificuldade 18 fechada — o agente vê agora as resoluções dos operadores
+
+Descoberta pelo dono em teste manual: gravar uma resolução para `F30805`/VFD-04 e voltar
+a perguntar o mesmo chamava o agente na mesma, ignorando o que tinha acabado de ser
+gravado. Causa: `build_history_tool` chamava `get_machine_history(machine_id)` com o
+default `include_resolutions=False` (escolha da fase 5, para não mexer no notebook 05).
+
+- Agora `include_resolutions=True` na tool do agente. O notebook 05 usa
+  `machines.get_machine_history` diretamente e fica inalterado.
+- `format_history()` ganhou `max_rows=HISTORY_MAX_ROWS` (20) + ordenação por data. **Isto
+  não é cosmético:** os `operator_resolution` acumulam sem limite, e sem cap o prompt do
+  agente crescia a cada turno para sempre.
+- O `DIAGNOSTIC_SYSTEM_PROMPT` distingue agora `[operator_resolution]` como nota de campo
+  **não verificada** — pista, não facto documentado, nunca citável como manual. (Lembrar:
+  o prompt passa por `.format(language=...)`, por isso **nada de `{` ou `}` literais**.)
+
+### Dificuldade 19 (nova) — o gate gastava sem ser contado
+
+O `CostTrackingCallback` só era anexado à chamada do agente. O juiz de segurança (+
+reescrita + re-verificação, até 3 chamadas) era gasto real invisível à linha de custo da
+sidebar **e ao teto diário** — o teto podia ser ultrapassado sem bloquear.
+`check_safety_precautions()` e `enforce_safety()` aceitam agora `config` opcional,
+reencaminhado para os três `.invoke()`; `services._apply_gate` passa o mesmo
+`agent_config`. Coberto por `TestCostConfigForwarding`.
+
+### Ainda por fazer (decisões do dono, não bugs)
+
+- **Oportunidade 5** — atalho de custo-zero quando já existe resolução para
+  `(máquina, código)` exato. Isto fecha o ciclo de *custo*; a 18 fechou só o de
+  *conhecimento* (o agente sabe, mas continua a pagar uma chamada).
+- **`OP-3001` (nome real do dono) está no `operators.csv` alterado.** O hash não se
+  reverte, mas um PIN de 4 dígitos parte-se por força bruta em segundos — decidir se
+  entra num repo público.
+- **Reranker sem knob** — `services.build_diagnostic_retriever` fixa `rerank=True`. É a
+  chamada LLM mais "opcional" do caminho crítico; um `FACTORY_FLOOR_RERANK_ENABLED`
+  daria uma alavanca de latência sem mexer em código.
+
+### Ferramenta nova: `manage_operators.py`
+
+Gerir operadores à mão no `operators.csv` é impossível (o PIN é hash PBKDF2, não texto).
+`manage_operators.py` na raiz faz `list` / `add` / `setpin` / `remove`. PINs de demo
+committados: OP-1001 `1234`, OP-1002 `5678`, OP-2001 `4321`.

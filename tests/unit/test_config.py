@@ -57,6 +57,9 @@ class TestEnvOverrides:
         assert Settings.from_env().semantic_cache_enabled is False
 
     def test_optional_float_parsing(self, monkeypatch):
+        # conftest loads the real .env, which may legitimately set a spend cap — clear
+        # it first so this asserts the *default*, not whatever the developer configured.
+        monkeypatch.delenv("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", raising=False)
         assert Settings.from_env().daily_spend_cap_usd is None
         monkeypatch.setenv("FACTORY_FLOOR_DAILY_SPEND_CAP_USD", "2.50")
         assert Settings.from_env().daily_spend_cap_usd == 2.5
