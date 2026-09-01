@@ -234,8 +234,12 @@ def run_diagnostic(req: DiagnosticRequest, *, vectorstore, llm=None, stream: boo
     gate_active = settings.safety_gate_mode != "off"
 
     def _apply_gate(raw_answer: str | None):
+        # Same callback as the agent call: the gate's judge (and any rewrite/re-check)
+        # is real spend, and without this it was missing from both the session cost
+        # line and the daily cap.
         gate = enforce_safety(
-            raw_answer, llm=llm, mode=settings.safety_gate_mode, language=req.language
+            raw_answer, llm=llm, mode=settings.safety_gate_mode, language=req.language,
+            config=agent_config,
         )
         return gate.delivered_answer, gate.as_dict()
 

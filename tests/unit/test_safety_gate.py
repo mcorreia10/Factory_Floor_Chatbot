@@ -4,6 +4,8 @@ The judge and the rewrite both run on the injected fake model (make_gate_llm), s
 network. The pre-existing post-hoc audit functions are covered in test_safety.py.
 """
 
+from langchain_core.messages import AIMessage
+
 from factory_floor.safety import FIXED_HELD_FALLBACK, SafetyAudit, enforce_safety
 
 
@@ -95,3 +97,50 @@ class TestBlockMode:
         assert gate.action == "held"
         assert gate.delivered_answer == FIXED_HELD_FALLBACK
         assert "recheck" not in gate.audit  # no rewrite attempted
+
+
+class TestCostConfigForwarding:
+    """The gate's judge/rewrite are real LLM spend. Until the run config was forwarded
+    they were invisible to the session cost line and the daily cap (and sat outside the
+    agent's trace tree). These assert the config actually reaches both call sites."""
+
+    class _RecordingLLM:
+        def __init__(self, audits, rewrite_text="Safety precautions: isolate first. [SOURCE 1] Then check."):
+            self._audits = list(audits)
+            self._rewrite_text = rewrite_text
+            self.configs = []
+
+        def with_structured_output(self, schema):
+            outer = self
+
+            class _Runnable:
+                def invoke(self, messages, config=None, **kwargs):
+                    outer.configs.append(config)
+                    return outer._audits.pop(0)
+
+            return _Runnable()
+
+        def invoke(self, messages, config=None, **kwargs):
+            self.configs.append(config)
+            return AIMessage(content=self._rewrite_text)
+
+    def test_config_reaches_the_judge(self):
+        llm = self._RecordingLLM([_audit(precautions_present=True, precautions_first=True)])
+        cfg = {"callbacks": ["sentinel"]}
+        enforce_safety(ACTION_NO_PRECAUTION, llm=llm, mode="rewrite", config=cfg)
+        assert llm.configs == [cfg]
+
+    def test_config_reaches_rewrite_and_recheck(self):
+        llm = self._RecordingLLM([
+            _audit(),                                                    # original fails
+            _audit(precautions_present=True, precautions_first=True),    # rewrite passes
+        ])
+        cfg = {"callbacks": ["sentinel"]}
+        gate = enforce_safety(ACTION_NO_PRECAUTION, llm=llm, mode="rewrite", config=cfg)
+        assert gate.action == "rewritten"
+        assert llm.configs == [cfg, cfg, cfg]  # judge, rewrite, re-check
+
+    def test_no_config_is_still_valid(self):
+        llm = self._RecordingLLM([_audit(precautions_present=True, precautions_first=True)])
+        enforce_safety(ACTION_NO_PRECAUTION, llm=llm, mode="rewrite")
+        assert llm.configs == [None]

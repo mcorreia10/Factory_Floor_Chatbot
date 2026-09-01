@@ -44,6 +44,31 @@ class TestFormatHistory:
         assert "2022-06-25 [corrective] F30021 — action taken: replaced motor cable" in out
         assert "2021-01-02 [preventive_maintenance] bearing noise — action taken: re-greased" in out
 
+    def test_caps_at_max_rows_keeping_the_most_recent(self):
+        # operator_resolution events accumulate without bound (difficulty #18 fix), so
+        # the history must not grow the agent's prompt forever.
+        rows = [
+            {"event_date": f"2020-01-{day:02d}", "event_type": "fault", "fault_code": f"F{day:05d}",
+             "description": "", "action_taken": "x"}
+            for day in range(1, 26)
+        ]
+        out = format_history(rows, max_rows=10)
+        assert "15 older event(s) omitted" in out
+        assert "F00025" in out       # newest kept
+        assert "F00016" in out       # 10th newest kept
+        assert "F00015" not in out   # 11th newest dropped
+        assert "F00001" not in out   # oldest dropped
+
+    def test_sorts_oldest_first_regardless_of_input_order(self):
+        rows = [
+            {"event_date": "2024-05-05", "event_type": "fault", "fault_code": "LATER",
+             "description": "", "action_taken": "x"},
+            {"event_date": "2021-01-01", "event_type": "fault", "fault_code": "EARLIER",
+             "description": "", "action_taken": "x"},
+        ]
+        out = format_history(rows)
+        assert out.index("EARLIER") < out.index("LATER")
+
 
 class TestSourceListFromDocs:
     def test_dedupes_by_file_and_page_and_skips_not_found(self):
