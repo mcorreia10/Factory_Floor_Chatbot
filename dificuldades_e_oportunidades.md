@@ -122,6 +122,11 @@ contexto adicional. Um operador a perguntar "o que fazer com esta falha" não be
 conhecimento de que aquela mesma máquina já teve 3 ocorrências parecidas — essa correlação fica a
 cargo do humano, não do sistema.
 
+**Atualização (2026-08-19, agente):** parcialmente endereçado — `factory_floor/agent.py` dá ao
+agente a ferramenta `get_maintenance_history()`, e o modelo decide quando a consultar. Fica um
+resíduo importante, agora registado em separado como dificuldade **18**: a ferramenta lê só o
+histórico estático, **não** as resoluções que os operadores gravam na própria app.
+
 ### 5. Extração de PDF apenas em texto — perde diagramas e chapas de identificação
 
 O `PyPDFLoader` extrai apenas texto corrido. Diagramas de ligação elétrica, esquemas e fotos de
@@ -269,6 +274,74 @@ relacionados com este bootcamp. Os URLs de trace impressos no `notebooks/08_trac
 (e nos seus outputs committados) contêm o UUID da organização/tenant — inofensivo para partilhar, mas
 vale a pena saber que está lá antes de publicar screenshots.
 
+### 18. ~~As resoluções gravadas pelo operador não voltam ao agente~~ — RESOLVIDO a 2026-09-01 (mesmo dia)
+
+Descoberto a 2026-09-01 durante teste manual da app (entrar como um operador, correr um diagnóstico
+para VFD-04 / `F30805`, gravar a resolução no histórico da máquina; depois entrar como outro
+operador e fazer a mesma pergunta — o agente foi chamado de novo e gastou dinheiro, ignorando por
+completo a resolução acabada de gravar).
+
+**Causa.** O botão "Record what you actually did" escreve as resoluções do operador na base de
+dados de auditoria (`resolution_events`, via `audit.append_resolution_event`). A função
+`machines.get_machine_history()` sabe unir esses eventos vivos ao CSV estático — mas só com
+`include_resolutions=True`. A ferramenta do agente (`factory_floor/agent.py`, a `@tool`
+`get_maintenance_history()` → `get_machine_history(machine_id)`) usa o valor por omissão,
+`include_resolutions=False`. Resultado: uma resolução que o operador grava para um código/máquina
+aparece no painel "Maintenance history" da UI, mas **é invisível para o agente** numa pergunta
+posterior sobre o mesmo código na mesma máquina.
+
+**Origem deliberada, não bug.** O `CLAUDE.md` documenta que `include_resolutions=False` por
+omissão foi escolhido para manter o `notebooks/05_maintenance_history.ipynb` e a própria ferramenta
+do agente inalterados quando a escrita de histórico foi adicionada (fase 5). É uma decisão de
+escopo — mas o efeito prático é que o ciclo "operador resolve → sistema regista → sistema usa da
+próxima vez" fica aberto na última etapa.
+
+**Correção (pequena, mas com decisões de desenho).**
+- 1 linha em `agent.py`: chamar `get_machine_history(machine_id, include_resolutions=True)`.
+- Decidir como `format_machine_history()` / o texto devolvido pela ferramenta apresenta um evento
+  `operator_resolution` (distingui-lo de um evento de fábrica; incluir data, operador e passos).
+- Orçamento de tokens: o histórico vivo cresce sem limite ao longo do tempo — provavelmente
+  limitar aos N eventos mais recentes, ou aos que partilham o código/família da pergunta.
+- Confiança: uma resolução escrita por um operador não passou por nenhuma verificação — o prompt
+  deve tratá-la como pista contextual ("esta máquina já teve isto, resolvido assim"), não como
+  facto fundamentado nos manuais.
+
+Relacionada com a dificuldade **4** (registo original) e com a oportunidade de melhoria **5**
+(abaixo), que propõe o atalho de custo-zero para o caso idêntico.
+
+**RESOLVIDO a 2026-09-01**, no mesmo dia em que foi descoberto:
+- `agent.py::build_history_tool` passou a chamar `get_machine_history(machine_id,
+  include_resolutions=True)` — o agente vê agora as resoluções gravadas pelos operadores.
+- `format_history()` ganhou ordenação por data (mais antigo primeiro) e um limite
+  `HISTORY_MAX_ROWS = 20`, com nota explícita de quantos eventos foram omitidos: o histórico
+  vivo cresce sem limite e sem isto inflaria o prompt do agente a cada turno.
+- O `DIAGNOSTIC_SYSTEM_PROMPT` passou a instruir que entradas `[operator_resolution]` são
+  **notas de campo não verificadas** — pista útil, nunca facto documentado, nunca citáveis como
+  conteúdo de manual, e a usar só declarando a origem.
+- Testes novos: ordenação e truncagem em `tests/unit/test_agent_helpers.py`.
+
+A oportunidade **5** (atalho de custo-zero) continua **por fazer** — isto fecha o ciclo de
+*conhecimento* (o agente sabe), não o de *custo* (continua a chamar o LLM).
+
+### 19. ~~O gate de segurança gastava dinheiro sem ser contabilizado~~ — RESOLVIDO a 2026-09-01
+
+Descoberto a 2026-09-01 ao explicar a decomposição das chamadas de um turno. O
+`CostTrackingCallback` da fase 3 era anexado via `config={"callbacks": [cb]}` **só** à chamada do
+agente. O `services.run_diagnostic::_apply_gate` invocava `enforce_safety(...)` com um `llm` sem
+callback e sem config — pelo que o **juiz de segurança** (e, quando falhava, a reescrita mais a
+re-verificação: até 3 chamadas) era gasto real que:
+
+- não entrava na linha "Session LLM cost" da sidebar,
+- não contava para o teto diário de gasto (`FACTORY_FLOOR_DAILY_SPEND_CAP_USD`) — ou seja, o
+  teto sub-contava e podia ser ultrapassado sem bloquear,
+- não aparecia dentro da árvore de trace do agente no LangSmith (aparecia como run separado).
+
+**Correção:** `check_safety_precautions()` e `enforce_safety()` aceitam agora um parâmetro
+`config` opcional, reencaminhado para os três sítios de `.invoke()` (juiz, reescrita,
+re-verificação); `services._apply_gate` passa o mesmo `agent_config` usado na chamada do agente.
+Testes novos em `tests/unit/test_safety_gate.py::TestCostConfigForwarding` confirmam que o config
+chega aos três sítios e que omiti-lo continua válido.
+
 ## Oportunidades de melhoria
 
 ### 1. Autenticação por utilizador (user ID + password) associada a um operador específico
@@ -358,3 +431,25 @@ literalmente do domínio motor+VFD.
 **Quando retomar isto**: seguir o mesmo processo rigoroso usado na Vision — não assumir a estrutura
 do dataset de memória, descarregar e inspecionar primeiro, confirmar o mapeamento real de labels
 antes de qualquer código de treino.
+
+### 5. Atalho de custo-zero para um caso já resolvido nesta máquina
+
+Motivada pelo mesmo teste manual que originou a dificuldade **18** (2026-09-01). Hoje, se um
+operador já registou a resolução para exatamente este código de avaria nesta máquina, uma pergunta
+posterior sobre o mesmo par continua a correr o agente completo e a pagar uma chamada ao LLM.
+
+**Proposta.** Antes de invocar o agente, verificar se existe em `resolution_events` uma resolução
+para `(machine_id, fault_code)` idêntico. Se existir:
+- mostrar essa resolução de imediato — operador, data, passos realizados, e a pergunta/resposta
+  originais a que ficou ligada — a custo zero;
+- deixar sempre disponível um botão "correr o diagnóstico à mesma", porque **o mesmo código não
+  garante a mesma causa** (um `F30021` ground fault desta vez pode ter origem diferente da anterior);
+- opcionalmente, alimentar essa resolução ao agente como pista de arranque (liga-se à dificuldade 18).
+
+**Como se distingue da cache semântica (`FACTORY_FLOOR_SEMANTIC_CACHE_ENABLED`).** A cache
+semântica é genérica, guarda respostas *geradas pelo LLM*, e para códigos de avaria exige texto
+exatamente igual. Este atalho é dirigido: chaveado por `(máquina, código)` exato, servido a partir
+de dados *escritos por um humano*, e explicável ao operador ("a Ana resolveu isto em 2025-11-05
+assim"). Os dois são complementares, não alternativos.
+
+**Depende de:** oportunidade **1** (histórico escrevível — já feito) e dificuldade **18**.
