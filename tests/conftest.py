@@ -54,6 +54,12 @@ def _isolate_runtime_state(tmp_path, monkeypatch):
     monkeypatch.setenv("FACTORY_FLOOR_AUDIT_DB_PATH", str(tmp_path / "audit.sqlite3"))
     monkeypatch.setenv("FACTORY_FLOOR_CMMS_OUTBOX_PATH", str(tmp_path / "cmms_outbox.jsonl"))
     monkeypatch.setenv("FACTORY_FLOOR_SEMANTIC_CACHE_DIR", str(tmp_path / "qa_cache"))
+    # The cache is opt-in in production, but this conftest loads the real .env — without
+    # this line, a developer enabling it there silently routes every service-level test
+    # through the cache path (a fake vectorstore then explodes inside Chroma on a mock
+    # embedding). Tests that want the cache turn it on themselves; see
+    # tests/integration/test_cache_integration.py.
+    monkeypatch.setenv("FACTORY_FLOOR_SEMANTIC_CACHE_ENABLED", "false")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

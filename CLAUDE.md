@@ -1038,3 +1038,48 @@ reencaminhado para os três `.invoke()`; `services._apply_gate` passa o mesmo
 Gerir operadores à mão no `operators.csv` é impossível (o PIN é hash PBKDF2, não texto).
 `manage_operators.py` na raiz faz `list` / `add` / `setpin` / `remove`. PINs de demo
 committados: OP-1001 `1234`, OP-1002 `5678`, OP-2001 `4321`.
+
+## 2026-09-01 (cont.) — Painel de ocorrências anteriores, a custo zero
+
+O dono perguntou, com o histórico do VFD-04 à frente: *"este defeito já tinha acontecido, não devia
+ter corrido o modelo?"*. A investigação deu três respostas, e uma funcionalidade nova.
+
+### Porque é que o modelo correu
+
+1. **O agente nem chamou a ferramenta de histórico.** O `tool_calls` do turno mostrava só
+   `search_manuals`. É um agente — decide — e para um código puro achou que o manual chegava.
+2. **Mesmo que tivesse chamado, o LLM corria na mesma.** A ferramenta devolve texto cru; ler e
+   compor a resposta *é* uma chamada. Ter histórico informa, não salta o modelo.
+3. **Não havia por onde procurar.** `resolution_events` não tinha `fault_code` — as resoluções
+   gravadas apareciam com o código vazio. Era o bloqueio real da oportunidade 5.
+
+### A armadilha que evitámos (importante para a defesa)
+
+Com os dados reais: `F30805` no VFD-04 foi respondido **2× com "Replaced the power unit module" e
+voltou na mesma**, depois 3× com desliga-liga. **Uma recomendação por frequência escolheria o
+desliga-liga, 3 votos a 2** — recomendaria mascarar uma avaria de hardware recorrente. Sem saber se
+cada ação *funcionou*, "mais frequente" ≠ "mais eficaz". Daí o desenho: **relatar, nunca
+recomendar**, e recolher `outcome` para que um dia se possa.
+
+### O que existe agora
+
+- **`factory_floor/recurrence.py`** — sem LLM nenhum. Contagem, ordenação e datas sobre registos
+  existentes. `RECURRENCE_WINDOW_DAYS = 28` é um juízo de manutenção, não um limiar medido — é uma
+  bandeira para o operador ler, nunca um veredicto automático.
+- **Interceção em `app.py::submit_turn`**, no mesmo padrão do `pending_typo`: `pending_prior` +
+  `prior_occurrence_ack`. Só dispara em **primeira pergunta, sem foto, com um único código, com
+  máquina selecionada e com histórico desse código**. Interromper um follow-up quebraria a linha de
+  raciocínio em que o operador já está.
+- **`code_in_question()` devolve None com dois códigos** — "esta avaria já aconteceu?" não tem
+  resposta única quando há duas avarias na pergunta.
+- **`resolution_events` + `fault_code` + `outcome`**, com migração `ALTER TABLE` idempetente
+  guiada por `PRAGMA table_info` (`_ADDED_COLUMNS`). **Armadilha:** o índice sobre `fault_code` teve
+  de sair do `_SCHEMA` para um `_SCHEMA_AFTER_MIGRATION` — numa BD antiga o `executescript` corre
+  *antes* dos `ALTER` e rebenta com "no such column".
+- Teste `test_never_recommends_an_action` falha se alguém acrescentar uma recomendação ao resumo.
+
+### Verificado ao vivo
+
+VFD-04 + "F30805 appeared again this morning" → painel com as 2 ocorrências, aviso "returned
+before — shortest gap 1385 days", e os botões de escolha. **A barra de custo não mexeu** — zero
+chamadas ao modelo.

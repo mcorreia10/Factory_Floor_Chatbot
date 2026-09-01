@@ -64,3 +64,50 @@ def test_resolution_event_shows_up_in_machine_history(tmp_vectorstore, make_agen
     assert "motor cable" in live_row["action_taken"]
     # the static CSV rows are unchanged
     assert all(r["event_type"] != "operator_resolution" for r in without)
+
+
+class TestResolutionCodeAndOutcome:
+    """fault_code and outcome were added after the table shipped: the column that makes a
+    resolution findable on the next occurrence, and the one that separates "done most
+    often" from "actually worked"."""
+
+    def test_migration_adds_the_columns_to_a_pre_existing_db(self, tmp_path):
+        import sqlite3
+
+        db = tmp_path / "old.sqlite3"
+        conn = sqlite3.connect(db)
+        conn.executescript(
+            "CREATE TABLE resolution_events ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT, recommendation_id INTEGER,"
+            " machine_id TEXT NOT NULL, operator_id TEXT, ts_utc TEXT NOT NULL,"
+            " steps_text TEXT NOT NULL, cmms_exported_at TEXT);"
+        )
+        conn.commit()
+        conn.close()
+
+        audit.init_db(db)
+
+        conn = sqlite3.connect(db)
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(resolution_events)")}
+        conn.close()
+        assert {"fault_code", "outcome"} <= cols
+
+    def test_round_trips_code_and_outcome(self, tmp_path):
+        db = tmp_path / "audit.sqlite3"
+        audit.append_resolution_event(
+            None, machine_id="VFD-04", operator_id="OP-1001",
+            steps_text="Replaced the power unit module",
+            fault_code="f30805", outcome="temporary", path=db,
+        )
+        (row,) = audit.get_resolution_events("VFD-04", path=db)
+        assert row["fault_code"] == "F30805"  # normalised to upper case
+        assert row["outcome"] == "temporary"
+
+    def test_defaults_stay_empty_for_callers_that_omit_them(self, tmp_path):
+        db = tmp_path / "audit.sqlite3"
+        audit.append_resolution_event(
+            None, machine_id="VFD-04", operator_id="OP-1001",
+            steps_text="Power cycled", path=db,
+        )
+        (row,) = audit.get_resolution_events("VFD-04", path=db)
+        assert row["fault_code"] == "" and row["outcome"] == ""

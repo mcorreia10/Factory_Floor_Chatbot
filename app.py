@@ -1,14 +1,21 @@
 import itertools
+from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import streamlit as st
 from dotenv import load_dotenv
 
-from factory_floor import audit, identity, services
+from factory_floor import audit, identity, recurrence, services
 from factory_floor.cache import SemanticCache
 from factory_floor.config import MANUAL_DIR, VECTOR_DIR, get_settings
 from factory_floor.cost import DailyLedger, UsageAccumulator
-from factory_floor.machines import append_resolution_event, get_machine_history, load_machines
+from factory_floor.machines import (
+    OUTCOME_LABELS,
+    append_resolution_event,
+    get_machine_history,
+    load_machines,
+)
 from factory_floor.manuals import extract_page_pdf
 from factory_floor.rag import get_llm
 from factory_floor.secrets import get_secret
@@ -20,7 +27,27 @@ load_dotenv()
 # the loaded environment. See CLAUDE.md 2026-08-21 on why the import order is fixed.
 get_settings.cache_clear()
 
-st.set_page_config(page_title="The Factory Floor", page_icon="🏭", layout="wide")
+st.set_page_config(page_title="The Factory Floor", layout="wide")
+
+# The agent writes each section of its answer as a markdown level-4 heading (rule 7 of
+# DIAGNOSTIC_SYSTEM_PROMPT) — "Safety precautions", "Remedies suggested by the manual",
+# and so on. Style them here rather than asking the model to bold them by hand, so the
+# look is consistent whether the text came from the agent, a safety rewrite, or the
+# cache. h4 is not used anywhere else in this app (st.title/st.subheader emit h1/h3).
+st.markdown(
+    """
+    <style>
+      .stMarkdown h4 {
+          font-size: 1.18rem;
+          font-weight: 700;
+          font-style: italic;
+          margin-top: 1.1rem;
+          margin-bottom: 0.35rem;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 LANGUAGES = {
     "🇬🇧 English": "English",
@@ -55,7 +82,7 @@ if not api_key:
 # Optional operator sign-in (phase 5). Off by default — set FACTORY_FLOOR_REQUIRE_LOGIN=true
 # to require it. On a real shop floor this is a badge scan / PIN pad / MES SSO, not a form.
 if get_settings().require_login and "operator" not in st.session_state:
-    st.title("🏭 The Factory Floor")
+    st.title("The Factory Floor")
     st.subheader("Operator sign-in")
     with st.form("operator_login"):
         _op_id = st.text_input("Operator ID", placeholder="e.g. OP-1001")
@@ -169,6 +196,85 @@ def source_rows(docs):
     return rows
 
 
+def render_prior_occurrences(report):
+    """The zero-cost panel: what this machine's own records already say about this fault.
+
+    Everything here is read from maintenance_history.csv and resolution_events — no model
+    was called, so nothing on screen can be invented. It deliberately stops at reporting:
+    ranking the past actions would recommend whatever was done most often, which on real
+    data is the wrong advice (a fault answered twice with a module replacement and three
+    times with a power cycle is a recurring hardware fault, not a power-cycle problem)."""
+    code = report["fault_code"]
+    count = report["count"]
+    st.info(
+        f"**{code} has happened on {report['machine_id']} before — "
+        f"{count} previous occurrence{'s' if count > 1 else ''}.** "
+        "Taken straight from this machine's records. No model was called, so this cost nothing."
+    )
+
+    rows = [
+        {
+            "Date": a["date"],
+            "What was done": a["action"] or "—",
+            "By": a["who"] or "—",
+            "Outcome": OUTCOME_LABELS.get(a["outcome"], a["outcome"] or "not recorded"),
+            "Source": "operator note" if a["source"] == "operator" else "logbook",
+            "Downtime (h)": a["downtime_hours"] or "—",
+        }
+        for a in report["actions"]
+    ]
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+    if report["recurring"]:
+        gap = report["shortest_gap_days"]
+        if report["returned_quickly"]:
+            st.warning(
+                f"⚠ **Recurring, and it came back fast** — only {gap} days between two "
+                "occurrences. Whatever was done last time did not hold."
+            )
+        elif gap is not None:
+            st.warning(
+                f"⚠ **This fault has returned before** — shortest gap between occurrences "
+                f"was {gap} days. A repair that was done already is not proof it is fixed."
+            )
+    if not report["outcomes"]:
+        st.caption(
+            "None of these records say whether the fix actually worked — the outcome field "
+            "was added recently. Filling it in when you record a resolution is what will "
+            "eventually make it possible to tell an effective action from a frequent one."
+        )
+
+
+MAILTO_MAX_CHARS = 1800
+
+
+def _resolution_mailto(machine_id, operator, turn, steps_text):
+    """A mailto: URL with the resolution report pre-filled, for the operator to send to
+    their supervisor from their own mail client.
+
+    Capped at MAILTO_MAX_CHARS: mail clients and browsers silently truncate or refuse
+    very long mailto URLs, and a report that arrives cut in half is worse than one that
+    says plainly it was shortened."""
+    body_parts = [
+        f"Machine: {machine_id}",
+        f"Operator: {operator.get('name', 'unknown')} ({operator.get('operator_id', '-')})",
+        f"Reported (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+        "",
+        "Question asked:",
+        (turn.get("question") or "-").strip(),
+        "",
+        "Resolution steps taken:",
+        (steps_text or "").strip() or "-",
+        "",
+        "-- Sent from The Factory Floor maintenance copilot.",
+    ]
+    body = "\n".join(body_parts)
+    if len(body) > MAILTO_MAX_CHARS:
+        body = body[:MAILTO_MAX_CHARS] + "\n\n[... shortened — see the machine history for the full record]"
+    subject = f"Maintenance report — {machine_id}"
+    return f"mailto:?subject={quote(subject)}&body={quote(body)}"
+
+
 def describe_tool_call(entry):
     if entry["tool"] == "search_manuals":
         return f'🔍 Searched manuals for: "{entry["input"].get("query", "")}"'
@@ -260,6 +366,22 @@ def submit_turn(question_text, uploaded_photo):
                 "as_typed": as_typed,
                 "suggestion": suggestion,
             }
+            return
+
+    # Has this exact fault already happened on this machine? Pure lookup over records we
+    # already hold — no model, no cost — so the operator sees it before deciding whether
+    # a diagnosis is worth running at all. Only on the first question of a conversation:
+    # interrupting a follow-up would break the thread the operator is already in.
+    if (
+        not st.session_state["turns"]
+        and uploaded_photo is None
+        and not st.session_state.pop("prior_occurrence_ack", False)
+    ):
+        report = recurrence.prior_occurrence_report(
+            st.session_state["selected_machine"]["machine_id"], question_text
+        )
+        if report:
+            st.session_state["pending_prior"] = {"question": question_text, "report": report}
             return
 
     classification = None
@@ -385,7 +507,7 @@ with form_col:
             </svg>
             <div style="position:relative; z-index:1;">
                 <div style="font-size:2rem; font-weight:800; color:#ffffff; letter-spacing:-0.01em; line-height:1.25;">
-                    <span style="margin-right:0.5rem;">🏭</span>Industrial Maintenance Copilot
+                    Industrial Maintenance Copilot
                 </div>
                 <div style="font-size:1.1rem; font-weight:500; color:#c7d5e3; margin-top:0.35rem;">
                     Electric Motors + Variable-Frequency Drives
@@ -431,6 +553,20 @@ with form_col:
                 st.session_state.pop("pending_typo")
                 submit_turn(pending["question"], None)
 
+    pending_prior = st.session_state.get("pending_prior")
+    if pending_prior:
+        render_prior_occurrences(pending_prior["report"])
+        run_col, skip_col = st.columns(2)
+        with run_col:
+            if st.button("Run the full diagnosis anyway", type="primary", use_container_width=True):
+                st.session_state["prior_occurrence_ack"] = True
+                st.session_state.pop("pending_prior")
+                submit_turn(pending_prior["question"], None)
+        with skip_col:
+            if st.button("That's enough — don't run it", use_container_width=True):
+                st.session_state.pop("pending_prior")
+                st.rerun()
+
 for idx, turn in enumerate(st.session_state["turns"]):
     render_turn(turn, idx)
 
@@ -452,7 +588,28 @@ if st.session_state["turns"]:
                 placeholder="e.g. Isolated the drive, measured insulation resistance motor-to-earth (0.2 MΩ), "
                 "replaced the motor cable, retested. Fault cleared.",
             )
-            _save_col, _cmms_col = st.columns(2)
+            # The fault code is what makes this record findable the next time the same
+            # fault appears; the outcome is what stops "done most often" being mistaken
+            # for "actually worked". Both were missing until now, which is exactly why
+            # earlier recorded resolutions cannot be matched to a fault at all.
+            _code_col, _outcome_col = st.columns(2)
+            with _code_col:
+                _fault_code = st.text_input(
+                    "Fault code this resolves (optional)",
+                    value=recurrence.code_in_question(_last_turn.get("question", "")) or "",
+                    key=f"resolution_code_{st.session_state.get('followup_key', 0)}",
+                    placeholder="e.g. F30805",
+                )
+            with _outcome_col:
+                _outcome_label = st.selectbox(
+                    "Did it work?",
+                    ["— not recorded —"] + list(OUTCOME_LABELS.values()),
+                    key=f"resolution_outcome_{st.session_state.get('followup_key', 0)}",
+                )
+            _outcome = next(
+                (k for k, v in OUTCOME_LABELS.items() if v == _outcome_label), ""
+            )
+            _save_col, _cmms_col, _mail_col = st.columns(3)
             with _save_col:
                 if st.button("Save to machine history", use_container_width=True):
                     if not _steps.strip():
@@ -463,6 +620,8 @@ if st.session_state["turns"]:
                             operator_id=operator.get("operator_id"),
                             steps_text=_steps.strip(),
                             recommendation_id=_last_turn.get("audit_id"),
+                            fault_code=_fault_code,
+                            outcome=_outcome,
                         )
                         st.session_state["last_resolution_id"] = _ev_id
                         st.success("Saved to this machine's history.")
@@ -475,6 +634,22 @@ if st.session_state["turns"]:
                 ):
                     _ack = audit.export_to_cmms(st.session_state["last_resolution_id"])
                     st.toast(f"CMMS accepted — ref {_ack['cmms_ref']}")
+            with _mail_col:
+                # A mailto: link, deliberately: it opens the operator's own mail client
+                # with the report pre-filled, so there is no SMTP server to configure and
+                # no mail credentials for this app to hold. The operator picks the
+                # recipient and presses send, which is also the honest trust boundary —
+                # the app never sends mail on someone's behalf.
+                st.link_button(
+                    "Email to supervisor",
+                    _resolution_mailto(machine_id, operator, _last_turn, _steps),
+                    use_container_width=True,
+                    disabled=not _steps.strip(),
+                )
+            st.caption(
+                "“Email to supervisor” opens your mail app with the report filled in — "
+                "choose the recipient and send it yourself."
+            )
 
     followup_col, _followup_spacer_col = st.columns([2, 1])
     with followup_col:

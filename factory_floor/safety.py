@@ -95,6 +95,11 @@ _ACTION_VERB_PATTERN = re.compile(
 
 
 def check_safety_precautions_keyword(answer_text: str) -> dict:
+    """Deterministic ENGLISH-ONLY cross-check for the LLM judge. Both patterns are
+    English vocabulary, so on a non-English answer this returns recommends_action=False
+    and passed=True regardless of content -- it is not a safety verdict in that case.
+    ``enforce_safety`` therefore only trusts it when language == "English"; anywhere
+    else it is recorded for reference and the judge decides."""
     action_match = _ACTION_VERB_PATTERN.search(answer_text)
     cue_match = _SAFETY_CUE_PATTERN.search(answer_text)
     recommends_action = action_match is not None
@@ -167,7 +172,11 @@ Rewrite it so that:
   from the original is kept unchanged;
 - every source citation from the original is kept verbatim, exactly as it appears
   (a bracketed SOURCE marker, or a "file, page N" reference);
-- nothing new is invented -- no new codes, limits, or procedures.
+- nothing new is invented -- no new codes, limits, or procedures;
+- section headings keep the answer's existing convention: a short heading on its own
+  line written as a markdown level-4 heading (four hash characters, a space, the
+  heading text), in the same language as the answer, with no trailing colon and no
+  manual bolding -- the interface styles them.
 
 Return only the rewritten answer, nothing else."""
 
@@ -218,9 +227,18 @@ def enforce_safety(answer_text: str | None, *, llm=None, mode: str = "rewrite",
         )
 
     keyword = check_safety_precautions_keyword(text)
-    audit: dict = {"keyword": keyword}
+    keyword_reliable = language == "English"
+    audit: dict = {"keyword": keyword, "keyword_reliable": keyword_reliable}
 
-    if not keyword["recommends_action"]:
+    # The cheap path (skip the LLM judge when no physical action is instructed) rests on
+    # _ACTION_VERB_PATTERN, which only matches ENGLISH verbs. A Portuguese answer saying
+    # "verificar o cabo e substituir" matches nothing, scores recommends_action=False,
+    # and would take the cheap pass -- silently disabling the whole safety gate for 4 of
+    # the 5 languages the app offers. So the shortcut is trusted for English only;
+    # every other language always goes to the judge, which reads the text in any
+    # language. Costs one extra call for a non-English clarifying question, which is the
+    # right trade against a gate that does not run at all.
+    if keyword_reliable and not keyword["recommends_action"]:
         return SafetyGateResult("pass", answer_text, answer_text, audit,
                                 "no physical action instructed")
 
