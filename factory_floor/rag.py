@@ -26,7 +26,7 @@ Rules:
 6. Respond in {language}. Never translate fault codes, parameter numbers, or equipment/model names —
    keep them exactly as they appear in the source documentation, since operators must recognize them
    on the physical equipment display.
-7. This is an educational milestone and not yet the final diagnostic agent."""
+7. This is decision support for a trained technician, not a certified industrial safety system."""
 
 PROMPT = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
@@ -105,7 +105,7 @@ RERANK_PROMPT = ChatPromptTemplate.from_messages([
 def rerank_documents(query, docs, llm=None, top_n=5):
     """Re-scores a wider candidate pool by true relevance to the query via one LLM call —
     unlike Chroma's raw vector distance, this can recover a chunk that mentions the exact
-    fault code but wasn't the semantically closest neighbor (dificuldades_e_oportunidades.md,
+    fault code but wasn't the semantically closest neighbor (docs/limitations_and_opportunities.md,
     difficulty #1). Fails open: any parsing problem falls back to the original vector-search
     order, never raises."""
     if len(docs) <= top_n:
