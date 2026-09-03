@@ -1124,3 +1124,67 @@ Verificado antes do commit: **183 testes passam**, ruff limpo.
 do GitHub devolve 404 nesse URL. Enquanto assim for, o link não mostra nada a quem o
 receber, e o badge de CI no topo do README também não renderiza. Tornar público em
 Settings → General → Danger Zone → Change visibility.
+
+## 2026-09-04 — Limpeza final: ficheiros a mais fora, documentos alinhados com o sistema atual
+
+Sessão de coerência, a seguir à reescrita do README. Zero alterações de comportamento —
+só documentação, mais uma docstring. **183 testes passam, ruff limpo.**
+
+**Ficheiros que saíram do repo** (movidos para `~/Desktop/Factory_Floor_arquivo/`, não
+apagados do disco; continuam no histórico do git de qualquer forma):
+
+- `project_presentation.pptx` — o deck final do bootcamp, e **desatualizado**: o slide de
+  limitações ainda listava "embedding search struggles with exact alphanumeric fault codes"
+  e "no relevance threshold yet", ambos resolvidos a 2026-08-25 (18% → 100%), e o último
+  slide fechava com "ALL 7 BOOTCAMP CORE REQUIREMENTS ✅". Contradizia o README.
+- `roadmap.pptx`, `Benchmarking Results.pptx`, `vertical_slice_slide.pptx` — órfãos, nada
+  no repo os referenciava. Os números do deck de benchmarking estão todos no README e nos
+  notebooks 06/10.
+- `test_questions.txt` — substituído pelo `eval_scenarios.csv` (37 cenários verificados)
+  desde 2026-08-21; só o histórico o mencionava.
+
+**Nota sobre o `roadmap.pptx`:** as convenções de edição de slides descritas nas notas de
+2026-08-19 (append-only, `python-pptx`, fechar o PowerPoint antes de editar) já não se
+aplicam a nada dentro do repo. Ficam como registo.
+
+**`dificuldades_e_oportunidades.md` → `docs/limitations_and_opportunities.md`**, traduzido
+para inglês (era o único documento do repo em português) e atualizado no mesmo passo —
+traduzir um texto que ainda afirma coisas falsas não servia de nada. Os itens riscados,
+as datas e os números medidos foram todos preservados. O que mudou de estado:
+
+- **Dificuldade 3** (sem suíte de testes) → resolvida: 183 testes + CI em 3.12/3.13.
+- **Dificuldade 6** (sem identidade de operador) → resolvida na fase 5.
+- **Dificuldade 11** — a parte "falta um Safety Validator que bloqueie em tempo real" era
+  **falsa** desde a fase 4 (`enforce_safety`). Só o corpus SDS continua aberto.
+- **Dificuldade 14** (`recommend_actions()` sem fundamentação) → ultrapassada: saiu do
+  fluxo principal quando o agente passou a produzir a recomendação final.
+- **Oportunidades 1 e 2** (login por operador, botão para o CMMS) → construídas.
+- **Dificuldade 20, nova**: o gate de segurança não corria fora do inglês. Não estava
+  registado em lado nenhum além do `CLAUDE.md` — é o melhor achado do projeto e agora
+  está no documento.
+- **Oportunidade 6, nova**: o knob para desligar o reranker (`rerank=True` fixo em
+  `services.build_diagnostic_retriever`), que já estava aqui nas notas de 01-09 como
+  pendente.
+
+**Notebooks 01–10 varridos** (só células de markdown — nenhuma célula de código tocada,
+nada re-executado, nenhum output alterado; verificado programaticamente antes do commit).
+Saiu o vocabulário de bootcamp/milestone/roadmap, e sobretudo três afirmações **falsas**:
+
+- **notebook 09** dizia que o Safety Validator é *"not a live blocking/warning gate in
+  `app.py`"* — falso desde a fase 4. Passou a descrever o que faz e a apontar para
+  `enforce_safety()` como o sítio onde este mesmo juiz passou a correr a sério.
+- **notebook 04** dizia que *"vision, agents, memory and safety validation remain"*.
+- **notebook 07** dizia que o Safety Validator *"needs a Safety Data Sheet corpus that
+  doesn't exist yet"* — foi construído sem SDS, fundamentado nas secções de segurança dos
+  próprios manuais.
+
+Referências a secções do README que mudaram para `docs/project_log.md` também corrigidas,
+e o nome antigo do documento de limitações atualizado em `audit.py`, `rag.py`, `agent.py`,
+`README.md` e nos notebooks 10/11.
+
+**`factory_floor/vision.py`**: a docstring do extractor de features justificava não fazer
+fine-tuning com *"the bootcamp spec explicitly discourages fine-tuning"*. A razão técnica
+(≈1.5k imagens em 4 categorias — fine-tuning sobreajusta antes de ajudar) é melhor e é a
+que lá está agora.
+
+**Continua por fazer, e só o dono pode:** tornar o repositório público.

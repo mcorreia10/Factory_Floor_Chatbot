@@ -47,8 +47,8 @@ class DefectPrediction(BaseModel):
 @lru_cache(maxsize=1)
 def get_feature_extractor():
     """Frozen, pretrained ResNet18 with its classification head removed — used only to
-    turn an image into a 512-d feature vector, never fine-tuned (the bootcamp spec
-    explicitly discourages fine-tuning)."""
+    turn an image into a 512-d feature vector, never fine-tuned: with ~1.5k images across
+    4 categories, fine-tuning would overfit long before it helped."""
     weights = ResNet18_Weights.DEFAULT
     model = resnet18(weights=weights)
     model.fc = torch.nn.Identity()

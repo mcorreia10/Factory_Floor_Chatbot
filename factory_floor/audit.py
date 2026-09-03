@@ -6,7 +6,7 @@ Plus a write path so an operator's actual resolution steps go back into the mach
 history.
 
 Storage is stdlib ``sqlite3`` with ``journal_mode=WAL`` — this is the answer to the
-concurrent-write race flagged in ``dificuldades_e_oportunidades.md`` #6: several
+concurrent-write race flagged in ``docs/limitations_and_opportunities.md`` #6: several
 Streamlit sessions can write at once without "database is locked". The static
 ``maintenance_history.csv`` stays read-only; live events live here and the UI unions the
 two.

@@ -168,7 +168,7 @@ Two features were built, measured, and **deliberately reverted**: a real-thermal
 dataset (369 images turned out to be only 11 independent scenes, so no split could measure
 generalisation) and a component-identity classifier (100% accurate, but each category had its own
 capture background, so transfer to a real photo was never established). Both are in
-[`dificuldades_e_oportunidades.md`](dificuldades_e_oportunidades.md).
+[`docs/limitations_and_opportunities.md`](docs/limitations_and_opportunities.md).
 
 ---
 
@@ -366,7 +366,7 @@ uncoupled).
   implementation.
 
 Open gaps and abandoned experiments are tracked in
-[`dificuldades_e_oportunidades.md`](dificuldades_e_oportunidades.md); the dated build history is
+[`docs/limitations_and_opportunities.md`](docs/limitations_and_opportunities.md); the dated build history is
 in [`docs/project_log.md`](docs/project_log.md).
 
 ---

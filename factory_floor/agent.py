@@ -81,7 +81,7 @@ Rules:
    put a colon at the end of a heading, and do not bold it by hand -- the interface
    styles these headings itself. Keep the body of each section as normal prose or
    bullet points.
-8. This is an educational milestone, not yet a certified safety system."""
+8. This is decision support for a trained technician, not a certified industrial safety system."""
 
 
 def format_machine_context(machine_id: str) -> str:
@@ -185,7 +185,7 @@ def build_history_tool(machine_id: str):
         # include_resolutions=True closes the loop opened in phase 5: without it an
         # operator's recorded resolution showed in the UI history panel but was invisible
         # to the agent on the next question about the same code on the same machine
-        # (dificuldades_e_oportunidades.md #18).
+        # (docs/limitations_and_opportunities.md #18).
         rows = get_machine_history(machine_id, include_resolutions=True)
         return format_history(rows)
 
