@@ -43,5 +43,10 @@ data/vision_model/
 # Office lock files (created while a .pptx/.docx is open, deleted on close)
 ~$*
 
-# Logs
+# Logs — app_out.log / app_err.log are the Streamlit run logs; they were tracked by
+# mistake until 2026-09-03 and carry nothing but local run noise.
 streamlit.log
+*.log
+
+# Local editor / agent settings — machine-specific, not project configuration.
+.claude/settings.local.json
