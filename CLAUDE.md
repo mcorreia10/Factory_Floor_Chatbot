@@ -20,6 +20,10 @@ the 3-page project document — see `dificuldades_e_oportunidades.md`. The histo
 (2026-08-18 through 2026-08-19) is kept for context on how earlier milestones were
 built; don't re-derive it from scratch.
 
+Note (2026-09-03): the dated session notes that used to live in `README.md` moved to
+`docs/project_log.md`, verbatim. Older notes in this file that cite "README's
+2026-08-25 note" (and similar) now mean that file — the README is the front door.
+
 ## 2026-08-27 — Professionalization work started (branch `professionalization`)
 
 A multi-phase "production-readiness" effort is underway on a dedicated branch
@@ -1083,3 +1087,40 @@ recomendar**, e recolher `outcome` para que um dia se possa.
 VFD-04 + "F30805 appeared again this morning" → painel com as 2 ocorrências, aviso "returned
 before — shortest gap 1385 days", e os botões de escolha. **A barra de custo não mexeu** — zero
 chamadas ao modelo.
+
+## 2026-09-03 — README reescrito para portefólio; histórico movido para `docs/project_log.md`
+
+O repositório é a peça de portefólio para candidaturas, e o `README.md` ainda era o
+diário de trabalho: 602 linhas, parado a 2026-08-25, com secções tipo *"Session note —
+read this FIRST before continuing"* e *"What to show in the Saturday presentation"*, e
+sem uma palavra sobre nada da professionalização (service layer, custo, gate de
+segurança, audit trail, identidade, cache, tenancy, API, testes) nem sobre o trabalho de
+01-09 (gate multilingue, painel de ocorrências).
+
+**O que mudou:**
+
+- **`README.md` reescrito de raiz** como front door: o que é → o que uma consulta faz
+  passo a passo → arquitetura (diagrama atualizado, com o agente, o gate, o custo, o
+  audit e o `services.py` como seam) → decisões de engenharia com os números medidos
+  (códigos de falha 18%→100%, o bug do gate em 4 das 5 línguas, o painel de recorrência
+  que relata e recusa recomendar, o reranker, agent-vs-baseline incluindo os números
+  que não favorecem o agente) → tabela de production concerns → quickstart + knobs →
+  dados (corpus, frota, os 17 códigos num `<details>`) → estrutura → limitações →
+  background do bootcamp → licença.
+- **`docs/project_log.md` (novo)** — todas as session notes datadas, a checklist de
+  conformidade dos 7 requisitos core e o guião da apresentação, **verbatim**. Nada foi
+  deitado fora; o README só deixou de ser o sítio onde isso vive. As referências deste
+  ficheiro a "README's 2026-08-25 note" e afins apontam agora, na prática, para lá.
+- **`LICENSE` (novo)** — MIT, `Copyright (c) 2026 Marcelo Correia`. O repo não tinha
+  licença nenhuma, o que num repo público significa "todos os direitos reservados".
+- **Ficheiros destrackados**: `app_err.log` (78 KB), `app_out.log` e
+  `.claude/settings.local.json`. Verificado antes de os tirar: os logs **não continham
+  segredos** (zero matches de `sk-`, `api_key` ou paths locais) — era só ruído de
+  execução do Streamlit. `.gitignore` ganhou `*.log` e `.claude/settings.local.json`.
+
+Verificado antes do commit: **183 testes passam**, ruff limpo.
+
+**Ainda por fazer, e só o dono pode:** o repositório continua **privado** — a API pública
+do GitHub devolve 404 nesse URL. Enquanto assim for, o link não mostra nada a quem o
+receber, e o badge de CI no topo do README também não renderiza. Tornar público em
+Settings → General → Danger Zone → Change visibility.
