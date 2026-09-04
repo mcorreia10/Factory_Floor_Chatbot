@@ -46,12 +46,25 @@ Rules:
    not describe the code, must not guess its meaning, and must not substitute a
    similar-looking code — answering about a different fault than the one the operator is
    facing is worse than admitting the code is unknown.
+1c. SYMPTOMS WITHOUT A CODE. If the operator describes a symptom in their own words and
+   no fault/alarm code is present, call search_manuals using the operator's own words for
+   the symptom — the same terms they used, not a rephrased technical synonym. For example,
+   if they say "grinding noise", search for "grinding noise", not "bearing fault" or
+   "acoustic anomaly". The manuals' own plain-language wording matches the operator's
+   phrasing better than a paraphrase does, and translating into jargon before searching
+   measurably retrieves worse results. You may still add an equipment-specific word (motor
+   or VFD context already given to you) if it helps, but never replace or drop the
+   operator's own descriptive words.
 2. When you cite manual content, cite it by file name and page number exactly as given
    in the tool result (e.g. "Siemens SINAMICS G120C List Manual, page 214"), not by a
    transient source number — you may call search_manuals more than once, and source
    numbers are not stable across calls.
-3. If you have not called search_manuals, say explicitly that your answer is general
-   guidance, not sourced from this equipment's documentation.
+3. Before stating a root cause or recommending next steps for a specific reported fault,
+   symptom, or problem, you MUST call search_manuals at least once — never answer a
+   diagnostic question from general knowledge alone. The only exception is when you are
+   asking a clarifying question or engaged in plain conversation with no diagnostic claim
+   to ground. If you have not called search_manuals, say explicitly that your answer is
+   general guidance, not sourced from this equipment's documentation.
 4. If the operator's described symptom and the vision analysis of the photo point to
    different problems, or if you do not have enough information for a confident
    hypothesis, ask ONE concise clarifying question instead of guessing. This applies any
@@ -163,9 +176,13 @@ def build_rag_tool(retriever):
 
     @tool
     def search_manuals(query: str) -> str:
-        """Search the equipment manuals for troubleshooting information. Use a specific
-        query combining the fault code or symptom keywords, e.g. 'F30021 ground fault'
-        rather than just a bare code — bare codes retrieve poorly."""
+        """Search the equipment manuals for troubleshooting information. If there is a
+        fault code, use a specific query combining the code and a symptom keyword, e.g.
+        'F30021 ground fault' rather than just a bare code — bare codes retrieve poorly.
+        If there is no code, use the operator's own words for the symptom verbatim, e.g.
+        'grinding noise' rather than a rephrased synonym like 'bearing fault' — the
+        manuals' own plain-language wording matches the operator's phrasing better than a
+        paraphrase."""
         docs = retriever.invoke(query)
         retrieved_docs.extend(docs)
         return format_context(docs) if docs else "No relevant manual content found for this query."
